@@ -1,0 +1,42 @@
+body button.demo-button {
+  min-height: 46px;
+  padding: 12px 20px;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  background: #334332;
+  color: #fffef8;
+  font: 600 14px/1.3 system-ui, sans-serif;
+  letter-spacing: .01em;
+  box-shadow: 0 2px 4px #17231614;
+  cursor: pointer;
+  transition: background .16s, box-shadow .16s, transform .16s;
+}
+body button.demo-button--stop,
+body button.demo-button--secondary {
+  background: transparent;
+  border-color: #89917c66;
+  color: inherit;
+  box-shadow: none;
+}
+body button.demo-button--stop::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 9px;
+  border-radius: 2px;
+  background: currentColor;
+  vertical-align: 1px;
+}
+body button.demo-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px #17231620;
+  filter: brightness(1.08);
+}
+body button.demo-button:active:not(:disabled) { transform: translateY(0); }
+body button.demo-button:focus-visible { outline: 3px solid #ad915d; outline-offset: 3px; }
+body button.demo-button:disabled { opacity: .45; cursor: not-allowed; box-shadow: none; }
+@media (prefers-reduced-motion: reduce) {
+  body button.demo-button { transition: none; }
+  body button.demo-button:hover:not(:disabled) { transform: none; }
+}

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Draw in the air</title>
+    <link rel="stylesheet" href="/src/draw.css" />
+  </head>
+  <body>
+    <main id="stage">
+      <!-- Mirrored webcam feed sits behind the canvas. -->
+      <video id="cam" autoplay muted playsinline></video>
+
+      <!-- Drawing surface. Strokes live here. -->
+      <canvas id="paper"></canvas>
+
+      <!-- On-screen controls, all reachable with the fingertip. -->
+      <button id="btn-clear" class="finger-btn finger-btn--secondary" data-dwell="0.6">
+        <span class="finger-btn__ring"></span>
+        <span class="finger-btn__label">Clear</span>
+      </button>
+
+      <button id="btn-done" class="finger-btn finger-btn--primary" data-dwell="0.9">
+        <span class="finger-btn__ring"></span>
+        <span class="finger-btn__label">Done</span>
+      </button>
+
+      <!-- Status / hint overlay. -->
+      <div id="hint">Loading hand tracking…</div>
+
+      <!-- Start gate: getUserMedia needs a user gesture. -->
+      <div id="start-gate">
+        <div class="start-card">
+          <h1>Draw in the air</h1>
+          <p>Point your finger and draw. Open your hand to pause. When you're done, hover your fingertip over the <strong>Done</strong> button.</p>
+          <p class="fine-print">Your camera stays in your browser — only the drawing is sent on.</p>
+          <button id="btn-start">Start</button>
+        </div>
+      </div>
+    </main>
+
+    <script type="module" src="/src/draw.js"></script>
+  </body>
+</html>

@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+    <title>Draw on screen</title>
+    <link rel="stylesheet" href="/src/canvas.css" />
+  </head>
+  <body>
+    <main id="stage">
+      <canvas id="paper"></canvas>
+
+      <button id="btn-clear" class="tool tool--secondary">Clear</button>
+      <button id="btn-done" class="tool tool--primary">Done</button>
+
+      <div id="hint">Draw something. Tap Done when you're ready.</div>
+    </main>
+
+    <script type="module" src="/src/canvas.js"></script>
+  </body>
+</html>

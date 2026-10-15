@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+  <head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>Einstein’s Chalkboard · Visko</title><link rel="stylesheet" href="/src/demo-buttons.css" /></head>
+  <body>
+    <main class="einstein-layout">
+      <section class="einstein-stage"><video id="einstein-video" autoplay playsinline muted poster="/einstein/reference.jpg"></video><div class="einstein-caption"><span>VISKO ORBIS / INTERACT STUDIO</span><h1>Einstein’s Chalkboard</h1><p id="einstein-status" role="status">Ask about gravity and the apple drops.</p></div></section>
+      <aside>
+        <form id="connect-form"><label>Gemini API key<input id="gemini-key" type="password" autocomplete="off" placeholder="For Einstein’s answers and voice" /></label><p class="fine-print">Keys aren’t saved. Chat needs Gemini; scene directions don’t.</p><button id="connect" type="submit" class="demo-button">Meet Einstein ↗</button></form>
+        <h2>Pick a topic</h2><div id="topics"></div>
+        <form id="question-form"><label>Your question<textarea id="question" rows="3" maxlength="2000" placeholder="Why does time slow down in space?" required></textarea></label><button id="ask" disabled>Ask Einstein</button></form>
+        <form id="direction-form"><label>Direct the scene<input id="direction" maxlength="1000" placeholder="Hold up a small glowing atom model" required /></label><button id="direct" disabled>Show it</button></form>
+        <audio id="speech" controls hidden></audio><div id="history" role="log" aria-live="polite"></div>
+      </aside>
+    </main><script type="module" src="/src/einstein/main.js"></script>
+  </body>
+</html>

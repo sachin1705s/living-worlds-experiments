@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>Tech Roast · Vidu Avatar</title><link rel="stylesheet" href="/src/demo-buttons.css" /></head>
+<body><main>
+  <header class="demo-intro"><h1>Pitch your idea. Get roasted.</h1></header>
+  <div class="layout"><section><div class="stage"><video id="avatar" autoplay muted playsinline></video><p id="placeholder">THE CRITIC WILL SEE YOU NOW.</p></div><audio id="voice" controls autoplay></audio><p class="hint">No sound? Press play. Camera and mic stay off.</p><div id="transcript" role="log" aria-live="polite"></div></section>
+  <aside><form id="roast-form">
+    
+    <label>Your idea or follow-up<textarea id="idea" required maxlength="2000" placeholder="We’re building Uber for houseplants. Our moat is…"></textarea></label>
+    <label>Import pitch text<input id="pitch" type="file" accept=".txt,.md,text/plain,text/markdown" /></label><p class="hint">2,000 characters max. Text only; no URL or PDF imports.</p>
+    <button id="start" class="demo-button">Roast me ↗</button>
+  </form><button id="send" class="demo-button demo-button--secondary" disabled>Send follow-up</button><p id="status" role="status">Automatic stop after 5 minutes.</p></aside></div>
+</main><script type="module" src="/src/roast.js"></script></body></html>

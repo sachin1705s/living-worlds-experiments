@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>LingBot Playground</title>
+    <link rel="stylesheet" href="/src/playground.css" />
+    <link rel="stylesheet" href="/src/demo-buttons.css" />
+  </head>
+  <body>
+    <div id="layout">
+      <aside id="panel">
+        <header>
+          <h1>LingBot Playground</h1>
+          <a href="/showcase.html" class="back">&larr; Back</a>
+        </header>
+
+
+        <section>
+          <h2>Reference picture</h2>
+          <input type="file" id="seed-file" accept="image/*" />
+          <img id="seed-preview" alt="" />
+        </section>
+
+        <section class="actions">
+          <button id="btn-start" class="demo-button" disabled>Start exploring</button>
+          <button id="btn-stop" class="demo-button demo-button--stop" type="button">Stop</button>
+          <button id="btn-reset" class="demo-button demo-button--secondary" disabled>Reset Session</button>
+        </section>
+
+        <section>
+          <h2>Status</h2>
+          <pre id="state-display">disconnected</pre>
+          <div id="log"></div>
+        </section>
+      </aside>
+
+      <main id="stage">
+        <video id="world-video" autoplay muted playsinline></video>
+        <p id="playback-status" role="status">Connect to start the live video</p>
+        <div id="controls-hint">WASD &mdash; Move &nbsp;&middot;&nbsp; Arrows &mdash; Look</div>
+      </main>
+    </div>
+    <script type="module" src="/src/playground.js"></script>
+  </body>
+</html>

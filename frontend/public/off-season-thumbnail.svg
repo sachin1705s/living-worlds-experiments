@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" fill="none">
+  <defs>
+    <linearGradient id="sky" x2="0" y2="600" gradientUnits="userSpaceOnUse"><stop stop-color="#101f2c"/><stop offset=".62" stop-color="#547477"/><stop offset="1" stop-color="#162d35"/></linearGradient>
+    <linearGradient id="deck" x1="400" y1="310" x2="400" y2="600" gradientUnits="userSpaceOnUse"><stop stop-color="#69746b"/><stop offset="1" stop-color="#18282b"/></linearGradient>
+    <radialGradient id="light"><stop stop-color="#ffdb91" stop-opacity=".55"/><stop offset="1" stop-color="#ffdb91" stop-opacity="0"/></radialGradient>
+    <linearGradient id="shade" x2="0" y2="600" gradientUnits="userSpaceOnUse"><stop offset=".55" stop-color="#09171d" stop-opacity="0"/><stop offset="1" stop-color="#09171d" stop-opacity=".85"/></linearGradient>
+    <filter id="blur"><feGaussianBlur stdDeviation="12"/></filter>
+  </defs>
+  <path fill="url(#sky)" d="M0 0h800v600H0z"/>
+  <circle cx="572" cy="123" r="70" fill="#b9d2ca" opacity=".07"/>
+  <circle cx="572" cy="123" r="36" fill="#c3d3c8"/>
+  <path d="M435 137c75-18 141-7 242 2M90 174c92-21 186-8 285 5" stroke="#b3c7bd" stroke-opacity=".12" stroke-width="18" filter="url(#blur)"/>
+  <path d="M0 303h800v297H0z" fill="#18353e"/>
+  <g stroke="#92b2ac" opacity=".24"><path d="M0 334h146m-120 27h194m-187 44h109m473-68h185m-162 38h162M0 458h116m537-32h147m-96 73h96"/><path d="m0 320 800-4M0 393l800-4" opacity=".3"/></g>
+  <g stroke="#152b33" stroke-width="6">
+    <circle cx="248" cy="243" r="100"/>
+    <circle cx="248" cy="243" r="87" stroke-width="2"/>
+    <path d="M248 143v200M148 243h200m-171-71 142 142m0-142L177 314M248 243l-51 116m51-116 49 116"/>
+  </g>
+  <g fill="#20353a"><rect x="236" y="137" width="25" height="21" rx="3"/><rect x="313" y="168" width="25" height="21" rx="3"/><rect x="337" y="240" width="25" height="21" rx="3"/><rect x="137" y="240" width="25" height="21" rx="3"/><rect x="165" y="168" width="25" height="21" rx="3"/></g>
+  <path d="M339 308h126l262 292H67z" fill="url(#deck)"/>
+  <g stroke="#aab3a0" stroke-opacity=".2"><path d="m365 311-160 289m187-289-42 289m69-289 76 289m-49-289 195 289M320 344h178m-209 35h240m-285 51h331m-386 62h441m-498 63h553"/></g>
+  <path d="m0 240 118-53 114 48v157L0 472z" fill="#14262e"/>
+  <path d="m0 240 119-65 127 53-14 19-114-42L0 261z" fill="#263a3e"/>
+  <path d="M27 263h144v43H27z" fill="#745c42"/>
+  <text x="99" y="291" fill="#d8c79e" font-family="Georgia,serif" font-size="23" letter-spacing="4" text-anchor="middle">ARCADE</text>
+  <path d="M25 326h61v105l-61 20zm80-4h69v80l-69 24z" fill="#0c1c25"/>
+  <g stroke="#42504d" stroke-width="3"><path d="m25 343 61-5m-61 24 61-7m-61 25 61-9m19-32 69-6m-69 24 69-9m-69 26 69-9"/></g>
+  <path d="m587 277 72-37 141 44v187l-213-87z" fill="#172a31"/>
+  <path d="m573 277 84-52 143 42v22l-141-40-72 38z" fill="#31464a"/>
+  <path d="M617 302h39v63l-39-9z" fill="#c99555" opacity=".65"/>
+  <path d="M636 302v59m-19-29h39" stroke="#243339" stroke-width="5"/>
+  <g stroke="#172a30" stroke-width="6"><path d="m311 322-185 209m371-209 185 209M292 342v65m-40-18v79m-55-14v100m316-212v65m40-18v79m55-14v100"/></g>
+  <ellipse cx="483" cy="254" rx="70" ry="82" fill="url(#light)"/>
+  <path d="M482 366V248q0-16 16-16h9" stroke="#14262b" stroke-width="6"/>
+  <path d="M494 231h23l-4 15h-15z" fill="#f4d397"/>
+  <path d="m501 251-32 157h90z" fill="#f3ce88" opacity=".05"/>
+  <g fill="#0c1b23"><circle cx="401" cy="363" r="10"/><path d="m390 373-12 54 19 2-2 34h8l5-34 15-2-13-54z"/><path d="m379 426-7 19 8 3 10-20z"/></g>
+  <path fill="url(#shade)" d="M0 0h800v600H0z"/>
+  <text x="400" y="535" fill="#efe4ca" font-family="Georgia,serif" font-size="57" letter-spacing="8" text-anchor="middle">OFF SEASON</text>
+  <text x="400" y="567" fill="#b5c0b3" font-family="Arial,sans-serif" font-size="12" letter-spacing="5" text-anchor="middle">THE PIER KEEPS ITS SECRETS</text>
+</svg>

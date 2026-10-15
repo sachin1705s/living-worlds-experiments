@@ -1,0 +1,86 @@
+:root {
+  --paper: #fdfaf3;
+  --ink: #1a1a1a;
+  --accent: #e85d3a;
+  --accent-dark: #c44726;
+  --muted: rgba(0, 0, 0, 0.55);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--paper);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: var(--ink);
+  overflow: hidden;
+  -webkit-user-select: none;
+  user-select: none;
+  overscroll-behavior: none;
+}
+
+#stage {
+  position: fixed;
+  inset: 0;
+}
+
+#paper {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--paper);
+  cursor: crosshair;
+  touch-action: none; /* block pinch-zoom / scroll while drawing */
+}
+
+.tool {
+  position: absolute;
+  bottom: 24px;
+  z-index: 2;
+  min-width: 96px;
+  padding: 14px 24px;
+  border-radius: 999px;
+  border: none;
+  font: 600 16px/1 inherit;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.tool:active { transform: scale(0.97); }
+
+.tool--primary {
+  right: 24px;
+  background: var(--accent);
+  color: #fff;
+}
+.tool--primary:hover { background: var(--accent-dark); }
+
+.tool--secondary {
+  left: 24px;
+  background: #fff;
+  color: var(--ink);
+}
+
+#hint {
+  position: absolute;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  padding: 10px 18px;
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  border-radius: 999px;
+  font-size: 14px;
+  pointer-events: none;
+  transition: opacity 0.4s ease;
+}
+
+#hint.is-hidden { opacity: 0; }
+
+@media (max-width: 480px) {
+  .tool { min-width: 80px; padding: 12px 18px; font-size: 14px; }
+}

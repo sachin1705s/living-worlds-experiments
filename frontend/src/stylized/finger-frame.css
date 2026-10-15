@@ -1,0 +1,266 @@
+:root {
+  --accent: #e85d3a;
+  --accent-dark: #c44726;
+  --glass: rgba(20, 20, 20, 0.72);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: #000;
+  color: #fff;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  overflow: hidden;
+}
+
+#stage {
+  position: fixed;
+  inset: 0;
+}
+
+/* Raw webcam + AI output share the exact same box/cover/mirror so the
+   clip-path masking lines up pixel-for-pixel between them. */
+#cam,
+#ai-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+}
+
+#cam { z-index: 1; }
+
+#ai-video {
+  z-index: 2;
+  background: #000;
+  /* Collapsed until a frame gesture is active — see updateClip() in JS. */
+  clip-path: polygon(0 0, 0 0, 0 0);
+}
+
+#overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 3;
+  pointer-events: none;
+}
+
+#debug-hud {
+  position: fixed;
+  bottom: 16px;
+  left: 16px;
+  z-index: 10;
+  margin: 0;
+  padding: 10px 14px;
+  background: rgba(0, 0, 0, 0.7);
+  color: #7CFC98;
+  font: 12px/1.5 ui-monospace, SFMono-Regular, monospace;
+  border-radius: 10px;
+  white-space: pre;
+  pointer-events: none;
+}
+#debug-hud.is-hidden { display: none; }
+
+/* ---- Controls bar ------------------------------------------------------ */
+
+#controls {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  max-width: min(680px, 92vw);
+  padding: 14px 18px;
+  background: var(--glass);
+  backdrop-filter: blur(10px);
+  border-radius: 20px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.4);
+}
+
+#controls.is-hidden { display: none; }
+
+.preset-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+}
+
+.preset-chip {
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font: 500 12px/1 inherit;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.preset-chip:hover { border-color: var(--accent); }
+.preset-chip.is-active { background: var(--accent); border-color: var(--accent); }
+
+#prompt-form {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+#prompt-input {
+  flex: 1;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  font: 400 14px/1 inherit;
+}
+#prompt-input::placeholder { color: rgba(255, 255, 255, 0.4); }
+#prompt-input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+#prompt-form button,
+#btn-stop {
+  padding: 10px 18px;
+  border: none;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font: 600 14px/1 inherit;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  white-space: nowrap;
+}
+#prompt-form button:hover,
+#btn-stop:hover { background: var(--accent-dark); }
+
+#btn-stop { background: rgba(255, 255, 255, 0.1); }
+#btn-stop:hover { background: rgba(255, 255, 255, 0.18); }
+
+/* ---- Hint banner -------------------------------------------------------- */
+
+#hint {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  padding: 10px 18px;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  border-radius: 999px;
+  font-size: 14px;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+#hint.is-hidden { opacity: 0; }
+
+/* ---- Start gate ---------------------------------------------------------- */
+
+#start-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  background: rgba(0, 0, 0, 0.9);
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+#start-gate.is-hidden { display: none; }
+
+.start-card {
+  max-width: 460px;
+  background: #16161a;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 24px;
+  padding: 32px 28px;
+  text-align: center;
+}
+.start-card h1 { margin: 0 0 12px; font-size: 28px; }
+.start-card p { margin: 8px 0; font-size: 15px; line-height: 1.55; color: rgba(255, 255, 255, 0.7); }
+.start-card .fine-print { font-size: 12px; margin-top: 16px; color: rgba(255, 255, 255, 0.45); }
+
+.own-key {
+  margin-top: 18px;
+  text-align: left;
+}
+.own-key summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.55);
+  list-style: none;
+}
+.own-key summary::-webkit-details-marker { display: none; }
+.own-key summary::before { content: "▸ "; }
+.own-key[open] summary::before { content: "▾ "; }
+.own-key summary:hover { color: rgba(255, 255, 255, 0.8); }
+/* Native <details> collapse can fail to hide form controls in some browsers
+   (an <input>'s own UA display value competes with the collapse mechanism)
+   — force it explicitly rather than relying on that alone. */
+.own-key:not([open]) input,
+.own-key:not([open]) .fine-print {
+  display: none;
+}
+.own-key input {
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  font: 400 14px/1 inherit;
+  box-sizing: border-box;
+}
+.own-key input::placeholder { color: rgba(255, 255, 255, 0.35); }
+.own-key input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.own-key .fine-print { margin-top: 8px; }
+
+#btn-start {
+  margin-top: 18px;
+  padding: 14px 28px;
+  border: none;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font: 600 18px/1 inherit;
+  cursor: pointer;
+}
+#btn-start:hover { background: var(--accent-dark); }
+#btn-start:disabled { opacity: 0.6; cursor: default; }
+
+/* ---- Status toast --------------------------------------------------------- */
+
+.status-toast {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  max-width: 90vw;
+  padding: 12px 20px;
+  border-radius: 12px;
+  background: #2a2a2a;
+  color: #fff;
+  font-size: 15px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+}
+.status-toast.is-hidden { display: none; }
+.status-toast.is-error { background: #c0392b; }
+
+@media (max-width: 560px) {
+  #controls { top: 12px; padding: 12px; gap: 8px; }
+  .start-card { padding: 26px 20px; }
+}
+
+
+#btn-stop{min-height:44px;padding:11px 22px;border:1px solid #ffffff40;border-radius:14px;background:transparent;font-weight:600}#btn-stop::before{content:"";display:inline-block;width:8px;height:8px;margin-right:9px;border-radius:2px;background:currentColor}#btn-start,#prompt-form button{min-height:44px;border-radius:14px;font-weight:600}#btn-stop:focus-visible,#btn-start:focus-visible,#prompt-form button:focus-visible{outline:3px solid #e9c28f;outline-offset:3px}

@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Stylized Worlds — live AI viewfinder</title>
+    <link rel="stylesheet" href="/src/stylized/finger-frame.css" />
+  </head>
+  <body>
+    <main id="stage">
+      <!-- Raw mirrored webcam. Always visible; the AI stream only shows through
+           the finger-frame cutout drawn on top of it. -->
+      <video id="cam" autoplay muted playsinline></video>
+
+      <!-- Reactor's transformed output. Same size/mirror as #cam so they line
+           up pixel-for-pixel; clip-path (set from JS) masks it to the
+           finger-frame quad each frame. -->
+      <video id="ai-video" autoplay muted playsinline></video>
+
+      <!-- Frame outline + corner glow, purely decorative feedback. -->
+      <canvas id="overlay"></canvas>
+
+      <!-- Live gesture-detection diagnostics: what's being seen, and why the
+           frame is or isn't engaging yet. -->
+      <pre id="debug-hud" class="is-hidden"></pre>
+
+      <!-- Top bar: prompt controls (SANA-Streaming only — X2 is dropped for now). -->
+      <div id="controls" class="is-hidden">
+        <div class="preset-row" id="preset-row"></div>
+
+        <form id="prompt-form" autocomplete="off">
+          <input id="prompt-input" type="text" placeholder="Name one change + what to keep, e.g. 'Turn my shirt into black leather; keep my pose and the background.'" />
+          <button type="submit">Apply</button>
+        </form>
+
+        <button id="btn-stop" type="button">Stop</button>
+      </div>
+
+      <!-- Hint / status banner. -->
+      <div id="hint">Loading hand tracking…</div>
+
+      <!-- Start gate: getUserMedia needs a user gesture. -->
+      <div id="start-gate">
+        <div class="start-card">
+          <h1>Stylized Worlds</h1>
+          <p>
+            Frame the view with your thumbs and index fingers. Pick a style.
+          </p>
+          <p class="fine-print">Camera streams to Reactor while running. Stop turns it off.</p>
+
+
+          <button id="btn-start">Start</button>
+        </div>
+      </div>
+    </main>
+
+    <!-- Error toast -->
+    <div id="status" class="status-toast is-hidden"><span id="status-text"></span></div>
+
+    <script type="module" src="/src/stylized/finger-frame.js"></script>
+  </body>
+</html>

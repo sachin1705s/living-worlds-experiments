@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>Check Your Drip</title><link rel="stylesheet" href="/src/demo-buttons.css" /></head>
+<body data-mode="drip">
+  <main>
+    <header class="demo-intro"><h1>Pick a look. Try it on.</h1></header>
+    <div class="layout">
+      <section class="stage" id="stage" aria-label="Full-frame editing stage">
+        <video id="output" autoplay muted playsinline></video>
+        <div id="placeholder">YOUR NEW LOOK APPEARS HERE</div>
+        <video id="camera" autoplay muted playsinline aria-label="Your camera preview"></video>
+        <button id="fullscreen" type="button">Full screen ↗</button>
+      </section>
+      <aside>
+        <h2>01 / Pick a look</h2><label>Editing mode<select id="category"><option value="virtual_tryon">Outfits</option><option value="subject_replacement">Characters</option><option value="style_transfer">Styles</option><option value="background_replacement">Backgrounds</option></select></label><div id="characters" class="characters"></div>
+        <label>Or upload a reference picture<input id="reference" type="file" accept="image/png,image/jpeg,image/webp" /></label><p id="selection">Selected: Robot</p>
+        <button id="apply" disabled>Apply look</button>
+        <div hidden><input id="song" type="file" /><audio id="music"></audio><p id="song-name"></p></div><h2>02 / Go live</h2>
+        <form id="connect"><button id="start" class="demo-button">Check my drip ↗</button></form>
+        <button id="stop" class="stop demo-button demo-button--stop" type="button">Stop</button>
+        <p id="status" role="status" aria-live="polite">Camera starts only when you connect. Paid sessions stop after 5 minutes.</p>
+      </aside>
+    </div>
+  </main><script type="module" src="/src/dance.js"></script>
+</body></html>
