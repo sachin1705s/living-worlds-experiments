@@ -1,16 +1,17 @@
 import { trackSession } from "../vidu-session.js";
 import "./style.css";
+import "../experiment-shell.css";
+if (window.parent !== window) document.documentElement.classList.add("framed");
 import { ReactorStreamService, attachStream, loadImageFile } from "./original/reactorStream";
 import { EXPLAIN_QUESTIONS, pcmToWav, glListProps, buildReactorInteractPrompt } from "./original/character";
 
 const video = document.getElementById("einstein-video");
-const status = document.getElementById("einstein-status");
+const status = { set textContent(_value) {} };
 const connectButton = document.getElementById("connect");
 const speech = document.getElementById("speech");
 const historyEl = document.getElementById("history");
 let service = null;
 let reactorKey = "";
-let geminiKey = "";
 let sessionId = "";
 let version = 0;
 let request = new AbortController();
@@ -65,8 +66,6 @@ async function stopSession() {
     speech.hidden = true;
     if (speechUrl) URL.revokeObjectURL(speechUrl);
     speechUrl = null;
-    geminiKey = "";
-    document.querySelectorAll('input[type="password"]').forEach((input) => { input.value = ""; });
     const current = service;
     const currentId = sessionId || current?.getSessionId();
     service = null;
@@ -114,8 +113,6 @@ document.getElementById("connect-form").addEventListener("submit", async (event)
   event.preventDefault();
   if (service || stopTask) return;
   const attempt = ++version;
-  geminiKey = document.getElementById("gemini-key").value.trim();
-  document.getElementById("gemini-key").value = "";
   request = new AbortController();
   connectButton.disabled = true;
   history = [];
@@ -165,7 +162,7 @@ document.getElementById("connect-form").addEventListener("submit", async (event)
 });
 
 async function playReply(text, attempt) {
-  const response = await api("/api/character/tts", { text, character: "Einstein's Chalkboard", geminiVoice: "Charon", ...(geminiKey ? { geminiApiKey: geminiKey } : {}) });
+  const response = await api("/api/character/tts", { text, character: "Einstein's Chalkboard", geminiVoice: "Charon" });
   const audio = await response.arrayBuffer();
   if (attempt !== version) return;
   const isPcm = response.headers.get("content-type")?.includes("audio/pcm");
@@ -193,7 +190,6 @@ async function ask(question) {
       history: history.slice(-6),
       character: "Einstein's Chalkboard",
       enableSearch: searchTriggers.some((word) => question.toLowerCase().includes(word)),
-      ...(geminiKey ? { geminiApiKey: geminiKey } : {}),
     });
     const data = await response.json();
     if (attempt !== version) return;

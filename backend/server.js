@@ -14,7 +14,7 @@ app.all("/api/token", async (req, res) => {
   res.set("Cache-Control", "no-store");
   const apiKey = process.env.REACTOR_API_KEY;
   const model = req.body?.model || "reactor/lingbot";
-  if (!["reactor/lingbot", "reactor/visko-orbis-stable", "reactor/sana-streaming", "reactor/vidu-s2-editing", "reactor/vidu-s2-avatar"].includes(model)) {
+  if (!["reactor/lingbot", "reactor/helios", "reactor/visko-orbis-stable", "reactor/sana-streaming", "reactor/vidu-s2-editing", "reactor/vidu-s2-avatar"].includes(model)) {
     return res.status(400).json({ error: "Unsupported model" });
   }
   if (typeof apiKey !== "string" || !apiKey.trim()) {

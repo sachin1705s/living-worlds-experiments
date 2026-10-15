@@ -1,35 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { CASE } from "@/lib/case";
-import { GEMINI_KEY, REACTOR_KEY, readKey, writeKey } from "@/lib/keys";
+import { GEMINI_KEY, REACTOR_KEY, writeKey } from "@/lib/keys";
 import { registerShowcaseStop } from "@/components/ShowcaseBridge";
 
 export default function FrontDoor() {
   const router = useRouter();
-  
-  const [geminiKey, setGeminiKey] = useState("");
-  const [loaded, setLoaded] = useState(false);
-
-  useEffect(() => {
-
-    setGeminiKey(readKey(GEMINI_KEY));
-    setLoaded(true);
-  }, []);
-
-  const ready = true;
 
   useEffect(() => registerShowcaseStop(async () => {
-
-    setGeminiKey("");
     writeKey(REACTOR_KEY, "");
     writeKey(GEMINI_KEY, "");
   }), []);
 
   function begin() {
-
-    writeKey(GEMINI_KEY, geminiKey.trim());
     router.push("/case");
   }
 
@@ -77,45 +62,16 @@ export default function FrontDoor() {
         </div>
       </div>
 
-      <div className="rule" />
-
-      <h2>Optional Gemini key</h2>
-      <div className="keys">
-
-        <div className="field">
-          <label htmlFor="gk">Gemini API key</label>
-          <input
-            id="gk"
-            type="password"
-            autoComplete="off"
-            spellCheck={false}
-            placeholder="AIza…"
-            value={geminiKey}
-            onChange={(e) => setGeminiKey(e.target.value)}
-          />
-          <p className="hint">
-            Drives the frame harness. Leave it empty and the game plays fine — you just won&rsquo;t get
-            the second opinion or the automatic reprompt.
-          </p>
-        </div>
-      </div>
-
       <div className="go">
-        <button className="btn" onClick={begin} disabled={!loaded || !ready}>
+        <button className="btn" onClick={begin}>
           Walk the pier
         </button>
-        <span className="note">
-          {loaded && !ready
-            ? "Loading…"
-            : "Reactor is provided. The optional Gemini key stays in this tab."}
-        </span>
       </div>
 
       <div className="costnote">
         <b>What this costs you.</b> FastH3 bills for the GPU, not the generation: 70 credits a second
         from the moment the session is ready until you leave — about <b>$0.42 a minute</b>, whether or
-        not a clip is building. Sessions are capped at twenty minutes. The footer keeps a running
-        meter, and closing the tab ends the session.
+        not a clip is building. Sessions are capped at twenty minutes, and closing the tab ends the session.
       </div>
     </main>
   );

@@ -258,8 +258,12 @@ html, body {
 .status-toast.is-error { background: #c0392b; }
 
 @media (max-width: 560px) {
-  #controls { top: 12px; padding: 12px; gap: 8px; }
-  .start-card { padding: 26px 20px; }
+  #controls { top: max(12px, env(safe-area-inset-top)); left: 12px; right: 12px; transform: none; max-width: none; padding: 12px; }
+  #prompt-form { flex-direction: column; }
+  #prompt-form button, #btn-stop { width: 100%; }
+  .start-card { padding: 26px 20px; width: min(100%, 460px); }
+  .start-card h1 { font-family: "Space Grotesk", sans-serif; font-size: 32px; letter-spacing: -0.04em; }
+  #hint { max-width: calc(100vw - 32px); text-align: center; bottom: max(16px, env(safe-area-inset-bottom)); }
 }
 
 

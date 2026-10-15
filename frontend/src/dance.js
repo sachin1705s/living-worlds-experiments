@@ -1,4 +1,6 @@
 import "./dance.css";
+import "./experiment-shell.css";
+if (window.parent !== window) document.documentElement.classList.add("framed");
 import { ViduS2EditingModel, MODEL_NAME } from "@reactor-models/vidu-s2-editing/core";
 import { attachVideoTrack, waitUntilReady } from "./reactor-media.js";
 import { stopReactor, trackSession } from "./vidu-session.js";
@@ -28,7 +30,18 @@ let timer = null;
 let sessionKey = "";
 let switching = false;
 let lastSessionId = null;
-const status = (message) => { element("status").textContent = message; };
+function status(message, tone = "") {
+  const node = element("status");
+  if (!node) return;
+  node.textContent = message || "";
+  node.classList.toggle("is-error", tone === "error");
+}
+function explain(error) {
+  if (error?.name === "NotAllowedError") return "Camera access was blocked. Allow the camera for this page in the browser bar, then try again.";
+  if (error?.name === "NotFoundError") return "No camera was found on this device.";
+  if (error?.name === "NotReadableError") return "The camera is in use by another app. Close it and try again.";
+  return error?.message || "Could not open the camera.";
+}
 const updateApply = () => { element("apply").disabled = phase !== "live" || switching || !!stopping; };
 
 function renderPresets() {
@@ -99,8 +112,10 @@ async function start() {
   const stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
   if (attempt !== version) { stream.getTracks().forEach((track) => track.stop()); return; }
   camera = stream;
+  element("stage").classList.add("is-preview");
   element("camera").srcObject = stream;
-  status("Connecting to Vidu…");
+  await element("camera").play().catch(() => {});
+  status("Camera on. Connecting…");
   const response = await fetch("/api/token", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ apiKey: sessionKey, model: MODEL_NAME }), signal });
   const data = await response.json();
   if (!response.ok) throw new Error(data.error || "Could not get a Reactor token.");
@@ -111,6 +126,8 @@ async function start() {
   session.onMainVideo((track) => {
     if (attempt !== version) return;
     attachVideoTrack(element("output"), track);
+    element("stage").classList.add("is-live");
+    element("stage").classList.remove("is-preview");
     element("placeholder").hidden = true;
   });
   session.onSessionState((state) => {
@@ -124,14 +141,14 @@ async function start() {
   session.onCommandError((error) => {
     if (attempt !== version) return;
     const message = `${error.code}: ${error.reason}`;
-    status(message);
+    status(message, "error");
     if (["start_edit", "session"].includes(error.command)) {
       void stop().then(() => status(message), (failure) => status(failure.message));
     }
   });
   session.on("error", (error) => {
     if (attempt !== version) return;
-    status(error.message || "Reactor connection error");
+    status(error.message || "Reactor connection error", "error");
     void stop().catch((failure) => status(failure.message));
   });
   timer = setTimeout(() => { void stop().catch((error) => status(error.message)); }, 5 * 60 * 1000);
@@ -165,6 +182,7 @@ async function release() {
   lastSessionId = null;
   sessionKey = "";
   phase = "idle";
+  element("stage").classList.remove("is-preview", "is-live");
   element("output").srcObject = null;
   element("placeholder").hidden = false;
   element("start").disabled = !!pending;
@@ -181,7 +199,7 @@ element("connect").addEventListener("submit", (event) => {
   if (pending || model || stopping) return;
   pending = start().catch(async (error) => {
     try { await stop(); } catch (failure) { status(failure.message); return; }
-    status(error.message);
+    status(explain(error), "error");
   }).finally(() => { pending = null; element("start").disabled = !!model || !!stopping; });
 });
 element("apply").addEventListener("click", async () => {

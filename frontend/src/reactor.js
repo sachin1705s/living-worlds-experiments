@@ -19,11 +19,17 @@ export function onState(fn) {
   return () => stateListeners.delete(fn);
 }
 
-export async function getToken(apiKey, signal) {
-  const r = await fetch("/api/token", apiKey ? {
+const SESSION_MODELS = {
+  lingbot: { sdk: "lingbot", token: "reactor/lingbot" },
+  helios: { sdk: "reactor/helios", token: "reactor/helios" },
+};
+
+export async function getToken(apiKey, signal, model = "reactor/lingbot") {
+  const needsPost = Boolean(apiKey) || model !== "reactor/lingbot";
+  const r = await fetch("/api/token", needsPost ? {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ apiKey }),
+    body: JSON.stringify({ ...(apiKey ? { apiKey } : {}), model }),
     signal,
   } : { signal });
   if (!r.ok) {
@@ -34,12 +40,13 @@ export async function getToken(apiKey, signal) {
   return jwt;
 }
 
-export async function initSession(videoElement, apiKey) {
+export async function initSession(videoElement, apiKey, modelName = "lingbot") {
+  const model = SESSION_MODELS[modelName] || SESSION_MODELS.lingbot;
   await disconnectSession();
   const version = sessionVersion;
   tokenRequest = new AbortController();
   videoEl = videoElement;
-  reactor = new Reactor({ modelName: "lingbot" });
+  reactor = new Reactor({ modelName: model.sdk });
 
   reactor.on("trackReceived", (_name, track) => {
     if (version !== sessionVersion || !videoEl) return;
@@ -59,7 +66,7 @@ export async function initSession(videoElement, apiKey) {
   const session = reactor;
   const signal = tokenRequest.signal;
   try {
-    const token = await getToken(apiKey, signal);
+    const token = await getToken(apiKey, signal, model.token);
     if (version !== sessionVersion) throw new Error("Session stopped");
     trackSession(session, token);
     await session.connect(token);
@@ -169,4 +176,54 @@ export async function setLookH(look_horizontal) {
 
 export async function setLookV(look_vertical) {
   await reactor.sendCommand("set_look_vertical", { look_vertical });
+}
+
+// Helios animates a still image. Conditioning has to land before start, or the
+// first frames ignore the drawing. `set_conditioning` is the atomic form.
+export async function animateDrawing(file, prompt = "animate it") {
+  const session = reactor;
+  if (!session) throw new Error("Not connected");
+
+  let settled = false;
+  let timer;
+  let onMessage;
+  const cleanup = () => {
+    if (settled) return;
+    settled = true;
+    clearTimeout(timer);
+    session.off("message", onMessage);
+  };
+  const ready = new Promise((resolve, reject) => {
+    timer = setTimeout(() => {
+      cleanup();
+      reject(new Error("Timed out waiting for the drawing to come to life."));
+    }, 20000);
+    onMessage = (msg) => {
+      if (settled) return;
+      if (msg?.type === "command_error") {
+        const reason = msg.data?.reason || msg.data?.message || "The model rejected the command.";
+        cleanup();
+        reject(new Error(String(reason)));
+        return;
+      }
+      if (msg?.type !== "conditions_ready") return;
+      cleanup();
+      resolve(msg);
+    };
+    session.on("message", onMessage);
+  });
+  ready.catch(() => {});
+
+  try {
+    const ref = await session.uploadFile(file);
+    if (reactor !== session) throw new Error("Session stopped");
+    await session.sendCommand("set_conditioning", { prompt, image: ref });
+    if (reactor !== session) throw new Error("Session stopped");
+    await ready;
+    if (reactor !== session) throw new Error("Session stopped");
+    await session.sendCommand("start", {});
+  } catch (error) {
+    cleanup();
+    throw error;
+  }
 }

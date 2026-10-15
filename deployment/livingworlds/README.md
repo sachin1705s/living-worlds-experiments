@@ -6,4 +6,4 @@ The `experiments/index.html` page embeds the independently hosted showcase. Copy
 { "source": "/experiments", "destination": "/experiments/index.html" }
 ```
 
-The main project uses the repository-root `vercel.json`. Deploy `demos/off-season` and `demos/news-studio` as separate Next.js projects. Configure `REACTOR_API_KEY` as a server-side secret in all three deployments, and `GEMINI_API_KEY` for the main backend and News Studio. No secret values should be committed or placed in public frontend environment variables.
+The main project uses the repository-root `vercel.json`. Deploy `demos/news-studio` as a separate Next.js project. Configure `REACTOR_API_KEY` as a server-side secret in both deployments, and `GEMINI_API_KEY` for the main backend and News Studio. No secret values should be committed or placed in public frontend environment variables.

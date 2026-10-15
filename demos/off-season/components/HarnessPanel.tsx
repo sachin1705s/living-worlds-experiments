@@ -37,13 +37,6 @@ export default function HarnessPanel({
         Harness — {busy ? "reading" : "watching"} · {sampled} frames sampled
       </h2>
 
-      {!hasKey && (
-        <p className="empty">
-          No Gemini key in this browser, so nothing is watching the picture. Add one on the front page
-          and the harness will score every shot as it plays.
-        </p>
-      )}
-
       <div className="knobs">
         <div className="switch">
           <span>Harness</span>

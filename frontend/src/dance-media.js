@@ -54,11 +54,11 @@ export function setupDanceMedia() {
       await music.play();
       if (!live || attempt !== epoch) { music.pause(); return; }
       resume.hidden = true;
-      musicStatus.textContent = "Playing your stream’s soundtrack. Pause or adjust volume in the player.";
+      if (musicStatus) musicStatus.textContent = "Playing your stream’s soundtrack. Pause or adjust volume in the player.";
     } catch {
       if (attempt !== epoch || !live) return;
       resume.hidden = false;
-      musicStatus.textContent = "Your browser blocked automatic audio. Tap Play soundtrack to start this same song.";
+      if (musicStatus) musicStatus.textContent = "Your browser blocked automatic audio. Tap Play soundtrack to start this same song.";
     }
   }
 
@@ -80,7 +80,7 @@ export function setupDanceMedia() {
     music.load();
     element("song-name").textContent = song.title;
     resume.hidden = true;
-    musicStatus.textContent = "Soundtrack selected. Waiting for the live picture…";
+    if (musicStatus) musicStatus.textContent = "Soundtrack selected. Waiting for the live picture…";
     try { void prepareAudio().catch(() => {}); } catch {}
     updateButton();
   }
@@ -89,7 +89,7 @@ export function setupDanceMedia() {
     if (!recorder) return Promise.resolve();
     recordButton.disabled = true;
     if (recorder.state !== "inactive") {
-      recordStatus.textContent = "Saving recording…";
+      if (recordStatus) recordStatus.textContent = "Saving recording…";
       recorder.stop();
     }
     return recordingDone;
@@ -113,7 +113,7 @@ export function setupDanceMedia() {
       recordingDone = new Promise((resolve) => { complete = resolve; });
       recorder = active;
       active.ondataavailable = (event) => { if (event.data.size) chunks.push(event.data); };
-      active.onerror = () => { failed = true; recordStatus.textContent = "Recording interrupted. Saving any captured footage…"; };
+      active.onerror = () => { failed = true; if (recordStatus) recordStatus.textContent = "Recording interrupted. Saving any captured footage…"; };
       active.onstop = () => {
         clearInterval(elapsedTimer);
         recordingStream?.getTracks().forEach((streamTrack) => streamTrack.stop());
@@ -130,9 +130,9 @@ export function setupDanceMedia() {
           download.hidden = false;
           preview.src = recordedUrl;
           preview.hidden = false;
-          recordStatus.textContent = `${failed ? "Partial recording" : "Recording"} saved in this tab (${(blob.size / 1024 / 1024).toFixed(1)} MB). Download it before closing.`;
+          if (recordStatus) recordStatus.textContent = `${failed ? "Partial recording" : "Recording"} saved in this tab (${(blob.size / 1024 / 1024).toFixed(1)} MB). Download it before closing.`;
         } else {
-          recordStatus.textContent = "No video was captured. Wait for the stream and try recording again.";
+          if (recordStatus) recordStatus.textContent = "No video was captured. Wait for the stream and try recording again.";
         }
         recordButton.textContent = "● Record dance";
         updateButton();
@@ -141,7 +141,7 @@ export function setupDanceMedia() {
       active.start(1000);
       preview.pause();
       const began = Date.now();
-      const updateElapsed = () => { recordStatus.textContent = `Recording ${Math.floor((Date.now() - began) / 1000)}s · character video + soundtrack${music.paused ? " (music paused)" : ""}`; };
+      const updateElapsed = () => { if (recordStatus) recordStatus.textContent = `Recording ${Math.floor((Date.now() - began) / 1000)}s · character video + soundtrack${music.paused ? " (music paused)" : ""}`; };
       updateElapsed();
       elapsedTimer = setInterval(updateElapsed, 1000);
       recordButton.textContent = "■ Stop & save recording";
@@ -149,7 +149,7 @@ export function setupDanceMedia() {
       recorder = null;
       recordingStream?.getTracks().forEach((track) => track.stop());
       recordingStream = null;
-      recordStatus.textContent = `Could not record: ${error.message}`;
+      if (recordStatus) recordStatus.textContent = `Could not record: ${error.message}`;
     } finally {
       preparing = false;
       updateButton();
@@ -162,7 +162,7 @@ export function setupDanceMedia() {
     preview.pause();
     music.pause();
     resume.hidden = true;
-    musicStatus.textContent = "Soundtrack stopped. The next stream gets a new random pick.";
+    if (musicStatus) musicStatus.textContent = "Soundtrack stopped. The next stream gets a new random pick.";
     updateButton();
     await finishRecording();
   }
@@ -174,12 +174,12 @@ export function setupDanceMedia() {
     if (!live) { music.pause(); return; }
     try { void prepareAudio().catch(() => {}); } catch {}
   });
-  music.addEventListener("error", () => { musicStatus.textContent = "This soundtrack could not load. Retry play; the song won’t switch during this stream."; });
+  music.addEventListener("error", () => { if (musicStatus) musicStatus.textContent = "This soundtrack could not load. Retry play; the song won’t switch during this stream."; });
   recordButton.addEventListener("click", () => {
     if (recorder) void finishRecording();
     else if (live && !preparing) void startRecording();
   });
-  if (!canRecord) recordStatus.textContent = "Recording is unavailable in this browser. Try a current Chrome, Edge, Firefox, or Safari.";
+  if (!canRecord) if (recordStatus) recordStatus.textContent = "Recording is unavailable in this browser. Try a current Chrome, Edge, Firefox, or Safari.";
   window.addEventListener("pagehide", () => {
     void stop();
     if (recordedUrl) URL.revokeObjectURL(recordedUrl);

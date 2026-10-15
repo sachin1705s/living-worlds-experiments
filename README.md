@@ -1,6 +1,6 @@
 # Living Worlds Experiments
 
-A showcase of eight interactive Reactor demos: Drawing to Live, Einstein’s Chalkboard, Tech Roast, Stylized Worlds, Check Your Drip, Off Season, R24 News Studio, and Vidu Dance Game.
+A showcase of interactive Reactor demos: Drawing to Live, Einstein’s Chalkboard, Tech Roast, Stylized Worlds, Check Your Drip, R24 News Studio, Vidu Dance Game, and Kahani.
 
 Live showcase: https://www.livingworlds.in/experiments
 
@@ -22,10 +22,10 @@ npm run install:all
 npm run dev
 ```
 
-Fill in the two keys in `.env` before starting. The launcher loads them once and passes them to the backend and both Next.js apps. No real API keys are included in this repository.
+Fill in the two keys in `.env` before starting. The launcher loads them once and passes them to the backend, News Studio, and Kahani. No real API keys are included in this repository.
 
 Open **http://127.0.0.1:5180/showcase.html**. This starts the Vite showcase (5180),
-token broker (3001), Off Season (5191), and News Studio (5192).
+token broker (3001), News Studio (5192), and Kahani (5193).
 Use Back to leave a demo and stop its session before shutting down the servers. Camera demos and Drawing to Live also have Stop buttons.
 
 | Demo | Model | Setup |
@@ -35,13 +35,13 @@ Use Back to leave a demo and stop its session before shutting down the servers. 
 | Tech Roast | Reactor Vidu S2-Avatar | Shared Reactor key; fixed thumbnail character |
 | Stylized Worlds | Reactor SANA-Streaming | Shared Reactor key and camera permission |
 | Check Your Drip | Reactor Vidu S2-Editing | Shared Reactor key and camera permission |
-| Off Season | Reactor FastH3 | Shared Reactor key; optional Gemini vision key |
 | News Studio | Reactor FastH3 | Server-side Reactor and Gemini keys |
 | Vidu Dance Game | Reactor Vidu S2-Editing | Shared Reactor key and camera permission; random soundtrack included |
+| Kahani | Reactor HappyOyster Directing | Shared Reactor key and `GEMINI_API_KEY` in the root `.env`. Gemini directs each choice and speaks the narrator lines. One fable: The Clever Rabbit and the Lion. |
 
-**Shared authentication:** set `REACTOR_API_KEY` once in the root ignored `.env` (the local backend and demo env files link to it). In production, configure it as a Vercel secret in each of the three projects. Reactor key overrides are not accepted by the token brokers. Browsers receive only scoped session tokens. Refresh/back navigation sends keepalive termination requests; modal close waits for its stop acknowledgment. Provider caps bound sessions when a browser cannot deliver its unload request. Run `node scripts/eval-session-lifecycle.mjs` to evaluate cleanup without opening paid sessions.
+**Shared authentication:** set `REACTOR_API_KEY` once in the root ignored `.env` (the local backend and demo env files link to it). In production, configure it as a Vercel secret in both projects. Reactor key overrides are not accepted by the token brokers. Browsers receive only scoped session tokens. Refresh/back navigation sends keepalive termination requests; modal close waits for its stop acknowledgment. Provider caps bound sessions when a browser cannot deliver its unload request. Run `node scripts/eval-session-lifecycle.mjs` to evaluate cleanup without opening paid sessions.
 
-**Deployment:** `https://www.livingworlds.in/experiments` embeds `worlds-experiments.vercel.app`. Off Season and News Studio run as separate Next.js projects. News Studio still requires Gemini and durable shared storage for multi-user broadcasts.
+**Deployment:** `https://www.livingworlds.in/experiments` embeds `worlds-experiments.vercel.app`. News Studio runs as a separate Next.js project. News Studio still requires Gemini and durable shared storage for multi-user broadcasts.
 
 **News Studio:** copy `demos/news-studio/.env.example` to
 `demos/news-studio/.env.local`, set `REACTOR_API_KEY` and `GEMINI_API_KEY`,
@@ -84,16 +84,16 @@ check the Reactor dashboard after a network failure. Do not expose this temporar
 bring-your-own-key token broker publicly without authentication.
 
 Keys entered into the Vidu, Drawing, Einstein, and Stylized Worlds UIs are not
-persisted. Off Season keeps its keys in tab-scoped session storage for navigation
-and clears them when stopped through the showcase. News Studio uses server env vars.
+persisted. News Studio uses server env vars.
 
 Einstein is extracted from `sachin1705s/interactive-studio-reactor` at
 `2abe64047c19642f1e6c50bdf26cb2e053d40f68`. Its original streaming/model adapters
 are in `frontend/src/einstein/original/`. Stylized Worlds is based on
 `saitiger/Experimentation`, branch `finger-frame-effect`, commit
-`9b10bc8c60d8a10c9086a3d7c1b233d95ad1838e`. Camera frames are sent while it runs,
+`9b10bc8c60d8a10c9086a3d7c1b233d95ad1838e`. Camera frames are sent while Stylized Worlds runs,
 even without a detected hand frame. MediaPipe needs network access.
-See [bundled source attribution](demos/SOURCES.md) for the two Next.js apps.
+Kahani is vendored from `adot-7/kahani`. It keeps its own server, because the Gemini key must stay off the browser. Create its world once with `npm --prefix demos/kahani run world:create` after the keys are set.
+See [bundled source attribution](demos/SOURCES.md) for News Studio.
 
 Provider references:
 - https://www.reactor.inc/models/vidu-s2-editing/api
