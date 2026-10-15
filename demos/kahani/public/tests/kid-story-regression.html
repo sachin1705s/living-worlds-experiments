@@ -1,0 +1,265 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>Kahani kid-story browser regression</title>
+<style>
+  body { max-width: 42rem; margin: 3rem auto; padding: 0 1.25rem; color: #183d2d; font: 18px/1.5 system-ui, sans-serif; }
+  button { min-height: 3.5rem; padding: 0 1.5rem; border: 0; border-radius: 1rem; background: #e9aa3c; color: #183d2d; font-size: 1rem; font-weight: 800; cursor: pointer; }
+  #result { margin-top: 1.5rem; padding: 1rem; border-radius: 1rem; background: #eff8ed; white-space: pre-wrap; }
+  .pass { color: #176337; } .fail { color: #9b3028; }
+</style>
+<h1>Full story flow check (KAH-011)</h1>
+<p>
+  This cannot be automated headlessly — it needs a real Chrome tab with WebRTC,
+  autoplay, and (optionally) a mic. Open the story, answer the first turn with
+  <strong>“Tell him to eat someone else”</strong>, let the lion release the rabbit
+  and head toward the named river/deer, then answer first with
+  <strong>“do not do anything”</strong> (the reprompt must stay inside decision 2),
+  then answer <strong>“Tell the deer it is safe now”</strong> and let it play
+  through to “The End”. Then come back
+  here and click Check flow.
+</p>
+<button id="open" type="button">Open story</button>
+<button id="check" type="button">Check flow</button>
+<div id="result" role="status">Waiting for a story window.</div>
+<script>
+  let storyWindow = null;
+  const result = document.querySelector("#result");
+  document.querySelector("#open").addEventListener("click", () => {
+    storyWindow = window.open("../", "kahani-story");
+    result.textContent = "Run the selfish lion-release -> decision-2 deer reprompt -> selfish comeuppance -> moral path in the story window, then click Check flow here.";
+  });
+
+  document.querySelector("#check").addEventListener("click", () => {
+    const events = storyWindow?.__KAHANI_FLOW_EVENTS__ || [];
+    const names = events.map((entry) => entry.event);
+    const openingClips = events.filter(
+      (entry) => entry.event === "opening clip",
+    );
+    const bridgeStart = events.filter((entry) => entry.event === "bridge_start");
+    const bridgeEnd = events.filter((entry) => entry.event === "bridge_end");
+    const instruct = events.filter((entry) => entry.event === "instruct_start");
+    const consequence = events.filter((entry) => entry.event === "consequence_start");
+    const decisionPose2Entry = events.find(
+      (entry) => entry.event === "decision pose started" && entry.details.decision === 2,
+    );
+    const decisionPose2 = Boolean(decisionPose2Entry);
+    const causalSetupStart = events.findIndex((entry) => entry.event === "causal decision-2 setup start");
+    const causalSetupAccepted = events.findIndex((entry) => entry.event === "causal decision-2 setup accepted");
+    const narrationStarts = events.filter((entry) => entry.event === "narration_start");
+    const decisionOneClipPlays = narrationStarts.filter(
+      (entry) => entry.details?.label === "clip decision-1-pose.mp3",
+    );
+    const decisionTwoPoseLabel = "decision-2 pose (runtime TTS)";
+    const decisionTwoPosePlays = narrationStarts.filter(
+      (entry) => entry.details?.label === decisionTwoPoseLabel,
+    );
+    const validIndex = events.findIndex(
+      (entry) => entry.event === "valid response advancing" && entry.details.decision === 1,
+    );
+    const decisionOneReprompts = events.filter(
+      (entry) => entry.event === "reprompt path" && entry.details?.decision === 1,
+    );
+    const decisionTwoReprompts = events.filter(
+      (entry) => entry.event === "reprompt path" && entry.details?.decision === 2,
+    );
+    const decisionTwoReopens = events.filter(
+      (entry) => entry.event === "reprompt turn reopened" && entry.details?.decision === 2,
+    );
+    const decisionSubmissions = events.filter((entry) => entry.event === "decision submitted");
+    const validAdvances = events.filter((entry) => entry.event === "valid response advancing");
+    const repromptAfterDecisionTwoValid = (() => {
+      const decisionTwoValidIndex = events.findIndex(
+        (entry) => entry.event === "valid response advancing" && entry.details.decision === 2,
+      );
+      return events.slice(decisionTwoValidIndex + 1).some((entry) => entry.event === "reprompt path");
+    })();
+    const moralStarted = names.includes("moral close started");
+    const moralEntry = events.find((entry) => entry.event === "moral close started");
+    const moralRuntimeTts = narrationStarts.some(
+      (entry) => entry.details?.label === "moral runtime TTS",
+    );
+    const storyEnded = names.includes("story ended");
+    const decisionPoses = events.filter((entry) => entry.event === "decision pose started");
+    const directorResponses = events.filter((entry) => entry.event === "director response");
+    const audioTelemetry = storyWindow?.__KAHANI_AUDIO_TELEMETRY__ || [];
+    const maxAudioOverlap = audioTelemetry.reduce(
+      (maximum, entry) => Math.max(maximum, Number(entry.overlap_count) || 0),
+      0,
+    );
+    const narratorDucked = audioTelemetry.some(
+      (entry) => entry.active_source && entry.world_muted === true && Number(entry.world_volume) <= 0.001,
+    );
+    const narratorRestored = audioTelemetry.some(
+      (entry) => entry.event === "world_volume" && entry.details?.target === 0.45,
+    );
+
+    // Every child-driven bridge has exactly one matching bridge_end and one
+    // budgeted instruct_start. The selfish route's separate causal setup is
+    // checked independently because it is not a child question or budgeted
+    // decision.
+    let bridgeEndsMatch = bridgeStart.length === bridgeEnd.length;
+
+    // No two narration sources ever overlap: narration_start/narration_end
+    // must never nest (active count never exceeds 1).
+    let active = 0;
+    let maximumActive = 0;
+    let wentNegative = false;
+    for (const entry of events) {
+      if (entry.event === "narration_start") active += 1;
+      if (entry.event === "narration_end") {
+        active -= 1;
+        if (active < 0) wentNegative = true;
+      }
+      maximumActive = Math.max(maximumActive, active);
+    }
+
+    // KAH-013 follow-up: the opening sequencer must be idempotent — each
+    // opening clip exactly once (a replay of "opening clip 1" means the run
+    // restarted on a live flicker) — and no transport pause/resume marker of
+    // any kind may occur. The story keeps traveling continuously.
+    const openingOnceEach = [1, 2, 3].every(
+      (sequence) =>
+        openingClips.filter((entry) => entry.details.sequence === sequence).length === 1,
+    );
+    const forbiddenTransportEvents = new Set([
+      "pause_capability_probe",
+      "world_paused_for_narration",
+      "world_pause_for_narration",
+      "world_paused",
+      "world_pause_error",
+      "world_pause_disabled",
+      "world_resume_after_narration",
+      "world_resumed_for_turn",
+      "world_resumed",
+      "world_resume_error",
+    ]);
+    const pauseAttempts = events.filter((entry) =>
+      forbiddenTransportEvents.has(entry.event) ||
+      forbiddenTransportEvents.has(entry.details?.event),
+    );
+    const openingStartedCount = names.filter((name) => name === "opening started").length;
+
+    // KAH-015 follow-up: the narration gate must collapse every chain
+    // (opening clips + pose, bridge->TTS, bridge->TTS->settle->moral) into
+    // ONE acquire and ONE release — never restore-to-ambience between
+    // sources in the same chain, which is audible even if brief.
+    const gateFlowEvents = events.filter(
+      (entry) =>
+        entry.event === "audio_telemetry" &&
+        (entry.details?.event === "narration_gate_acquire" ||
+          entry.details?.event === "narration_gate_release"),
+    );
+    const gateAcquireCount = gateFlowEvents.filter(
+      (entry) => entry.details.event === "narration_gate_acquire",
+    ).length;
+    const gateReleaseCount = gateFlowEvents.filter(
+      (entry) => entry.details.event === "narration_gate_release",
+    ).length;
+    let gateAlternatesCorrectly = true;
+    let expectingAcquire = true;
+    for (const entry of gateFlowEvents) {
+      const isAcquire = entry.details.event === "narration_gate_acquire";
+      if (isAcquire !== expectingAcquire) {
+        gateAlternatesCorrectly = false;
+        break;
+      }
+      expectingAcquire = !expectingAcquire;
+    }
+
+    // KAH-015 follow-up: the finalization barrier — decision 2's final beat
+    // gets a bounded settle window before the moral narrates over it, and
+    // nothing (another instruction, another pose) ever runs after the moral.
+    const settleStartIndex = events.findIndex((entry) => entry.event === "final_visual_settle_start");
+    const settleCompleteIndex = events.findIndex((entry) => entry.event === "final_visual_settle_complete");
+    const moralStartedIndex = events.findIndex((entry) => entry.event === "moral close started");
+    const storyEndedIndex = events.findIndex((entry) => entry.event === "story ended");
+    const instructAfterMoral =
+      moralStartedIndex >= 0 &&
+      events.slice(moralStartedIndex + 1).some((entry) => entry.event === "instruct_start");
+    const poseAfterEnded =
+      storyEndedIndex >= 0 &&
+      events.slice(storyEndedIndex + 1).some((entry) => entry.event === "decision pose started");
+    // The travel is deliberately ended right after the moral (a real stopped
+    // generation, not a live stream left running past the story's close), and
+    // The End is emitted only after the end call completes.
+    const travelEndStartIndex = events.findIndex((entry) => entry.event === "travel_end_start");
+    const travelEndCompleteIndex = events.findIndex((entry) => entry.event === "travel_end_complete");
+    const moralReleaseIndex = events.findIndex(
+      (entry) =>
+        entry.event === "audio_telemetry" &&
+        entry.details?.event === "narration_gate_release" &&
+        ["story_ended", "moral_failed"].includes(entry.details?.reason),
+    );
+    const instructionAfterTravelEnd =
+      travelEndStartIndex >= 0 &&
+      events
+        .slice(travelEndStartIndex + 1)
+        .some((entry) => entry.event === "instruct_start" || entry.event === "decision pose started");
+
+    let gateHeld = false;
+    let worldRestoredWhileGateHeld = false;
+    let worldRestoredOutsideChildTurn = false;
+    for (const entry of events) {
+      if (entry.event !== "audio_telemetry") continue;
+      const details = entry.details || {};
+      if (details.event === "narration_gate_acquire") gateHeld = true;
+      if (details.event === "narration_gate_release") gateHeld = false;
+      if (details.event !== "world_volume" || Number(details.details?.target) !== 0.45) continue;
+      if (gateHeld) worldRestoredWhileGateHeld = true;
+      const priorRelease = [...events.slice(0, events.indexOf(entry))].reverse().find(
+        (candidate) =>
+          candidate.event === "audio_telemetry" &&
+          candidate.details?.event === "narration_gate_release",
+      );
+      if (!["turn_opening", "turn_reopening"].includes(priorRelease?.details?.reason)) {
+        worldRestoredOutsideChildTurn = true;
+      }
+    }
+
+    const finalOrder =
+      settleCompleteIndex >= 0 &&
+      moralStartedIndex > settleCompleteIndex &&
+      moralReleaseIndex > moralStartedIndex &&
+      travelEndStartIndex > moralReleaseIndex &&
+      travelEndCompleteIndex > travelEndStartIndex &&
+      storyEndedIndex > travelEndCompleteIndex;
+
+    const checks = [
+      ["opening clips 1-3 played once each", openingClips.length === 3 && openingOnceEach],
+      ["opening sequencer ran once (no restart on flicker)", openingClips.length > 0 && openingStartedCount === 1],
+      ["no pause/resume calls or markers for continuous travel", pauseAttempts.length === 0],
+      ["bridge exactly twice (one per decision)", bridgeStart.length === 2 && bridgeEndsMatch],
+      ["world instruction once per child decision", instruct.length === 2],
+      ["selfish deer meeting is explicitly staged before decision 2", causalSetupStart >= 0 && causalSetupAccepted > causalSetupStart && causalSetupAccepted < events.findIndex((entry) => entry === decisionPose2Entry)],
+      ["decision-2 browser story text names the deer question and no well", /lion.*river.*rabbit.*deer.*asks/i.test(String(decisionPose2Entry?.details?.text || "")) && !/stone well|berries/i.test(String(decisionPose2Entry?.details?.text || ""))],
+      ["consequence started for both decisions", consequence.length === 2],
+      ["decision 2 pose reached", decisionPose2],
+      ["decision-1 clip plays exactly once (never replayed as decision-2)", decisionOneClipPlays.length === 1],
+      ["decision-2 pose uses its own runtime-TTS audio, not the decision-1 clip", decisionTwoPosePlays.length === 1],
+      ["no reprompt after valid decision-1 selfish response", validIndex >= 0 && decisionOneReprompts.length === 0],
+      ["decision-2 do-nothing reprompt reopens decision 2 without a third prompt", decisionTwoReprompts.length === 1 && decisionTwoReopens.length === 1 && repromptAfterDecisionTwoValid === false],
+      ["selfish trust/alone moral is shown through runtime Fish narration", moralStarted && /stayed safe|stopped trusting|alone/i.test(String(moralEntry?.details?.text || "")) && moralRuntimeTts],
+      ["story reached The End", storyEnded],
+      ["exactly two decision poses and no third prompt", decisionPoses.length === 2],
+      ["two decisions include one decision-2 reprompt and stop at CP3 before explicit moral CP4", directorResponses.length === 3 && directorResponses.filter((entry) => entry.details.needsReprompt === true).length === 1 && validAdvances.length === 2 && directorResponses.every((entry) => entry.details.checkpoint !== "CP4") && events.some((entry) => entry.event === "checkpoint_reached" && entry.details.checkpoint === "CP4")],
+      ["selfish playthrough uses the requested two-decision inputs", decisionSubmissions.length === 3 && decisionSubmissions[0].details.text === "Tell him to eat someone else" && decisionSubmissions[1].details.text === "do not do anything" && decisionSubmissions[2].details.text === "Tell the deer it is safe now"],
+      ["no overlapping narration", maximumActive <= 1 && !wentNegative],
+      ["audio telemetry shows native world muted during narration", narratorDucked],
+      ["audio telemetry shows native world restored after narration", narratorRestored],
+      ["audio telemetry overlap count stays at zero", maxAudioOverlap === 0],
+      ["world audio never restores while the narration gate is held", !worldRestoredWhileGateHeld],
+      ["world audio restores only after a child-turn release", !worldRestoredOutsideChildTurn],
+      ["narration gate acquires and releases in equal, alternating pairs", gateAcquireCount === gateReleaseCount && gateAlternatesCorrectly],
+      ["narration gate collapses each chain into one hold (not one per source)", gateAcquireCount > 0 && gateAcquireCount < narrationStarts.length],
+      ["narration gate holds exactly once per chain (opening+pose, decision-2 reprompt, bridge->TTS x2, standalone pose)", gateAcquireCount === 5],
+      ["final visual settle runs, in order, before the moral begins", settleStartIndex >= 0 && settleCompleteIndex > settleStartIndex && moralStartedIndex > settleCompleteIndex],
+      ["no further world instruction fires after the moral begins", !instructAfterMoral],
+      ["no further story phase (another pose) continues after the story ends", !poseAfterEnded],
+      ["final order is settle -> moral -> travel end start/complete -> The End", finalOrder],
+      ["nothing continues generation after the travel is deliberately ended", !instructionAfterTravelEnd],
+    ];
+    const failed = checks.filter(([, passed]) => !passed).map(([label]) => "FAIL: " + label);
+    result.className = failed.length ? "fail" : "pass";
+    result.textContent = (failed.length ? failed : checks.map(([label]) => "PASS: " + label)).join("\n");
+  });
+</script>

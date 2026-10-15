@@ -1,11 +1,21 @@
 import "./dance.css";
 import "./roast.css";
+import "./experiment-shell.css";
+if (window.parent !== window) document.documentElement.classList.add("framed");
 import { ViduS2AvatarModel, MODEL_NAME } from "@reactor-models/vidu-s2-avatar/core";
 import { attachVideoTrack, waitUntilReady } from "./reactor-media.js";
 import { trackSession, stopReactor, installStopBridge } from "./vidu-session.js";
+import { readPitchFile } from "./pitch-file.js";
 
 const element = (id) => document.getElementById(id);
-const status = (message) => { element("status").textContent = message; };
+const START_LABEL = "Roast me ↗";
+function status(message, tone = "") {
+  const node = element("status");
+  node.textContent = message || "";
+  node.classList.toggle("is-error", tone === "error");
+  const placeholder = element("placeholder");
+  if (placeholder && !placeholder.hidden && message) placeholder.textContent = message;
+}
 let model = null;
 let key = "";
 let sessionId = null;
@@ -55,6 +65,7 @@ async function start() {
   phase = "idle";
   commandError = null;
   element("transcript").replaceChildren();
+  element("start").textContent = "Waking the critic…";
   status("Connecting the critic…");
   const response = await fetch("/api/token", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ apiKey: key, model: MODEL_NAME }), signal });
   const token = await response.json();
@@ -79,12 +90,12 @@ async function start() {
   session.onCommandError((error) => {
     if (attempt !== version) return;
     commandError = `${error.code}: ${error.reason}`;
-    status(commandError);
+    status(commandError, "error");
   });
   session.on("error", (error) => {
     if (attempt !== version) return;
     commandError = error.message || "Avatar connection failed.";
-    status(commandError);
+    status(commandError, "error");
     void stop().catch((failure) => status(failure.message));
   });
   session.onSessionState((state) => {
@@ -147,8 +158,8 @@ element("roast-form").addEventListener("submit", (event) => {
   if (pending || stopping || model || !element("idea").value.trim()) return;
   element("start").disabled = true;
   pending = start().catch(async (error) => {
-    try { await stop(); status(error.message); } catch (failure) { status(failure.message); }
-  }).finally(() => { pending = null; element("start").disabled = !!stopping || !!model; });
+    try { await stop(); status(error.message, "error"); } catch (failure) { status(failure.message, "error"); }
+  }).finally(() => { pending = null; element("start").textContent = START_LABEL; element("start").disabled = !!stopping || !!model; });
 });
 element("send").addEventListener("click", async () => {
   const text = element("idea").value.trim();
@@ -160,12 +171,22 @@ element("send").addEventListener("click", async () => {
   finally { sending = false; element("send").disabled = phase !== "live" || !!stopping; }
 });
 element("pitch").addEventListener("change", async () => {
-  const file = element("pitch").files[0];
-  if (!file) return;
-  if (file.size > 72000) { status("Use a text file under 72 KB."); return; }
-  const text = await file.text();
-  element("idea").value = text.slice(0, 2000);
-  status(text.length > 2000 ? "Imported the first 2,000 characters. Review before sending." : "Pitch imported. Review before sending.");
+  const file = element("pitch").files?.[0];
+  if (!file || pending || stopping) return;
+  element("start").disabled = true;
+  status(`Reading ${file.name}…`);
+  try {
+    const text = (await readPitchFile(file)).replace(/[^\S\n]+/g, " ").trim();
+    const note = element("idea").value.trim();
+    const combined = note ? `${note}\n\n${text}` : text;
+    element("idea").value = combined.slice(0, 2000);
+    status(combined.length > 2000 ? "Imported the first 2,000 characters. Review before sending." : "Pitch imported. Review it, then roast.");
+  } catch (error) {
+    element("pitch").value = "";
+    status(error.message, "error");
+  } finally {
+    element("start").disabled = !!pending || !!stopping || !!model;
+  }
 });
 installStopBridge(stop);
 window.addEventListener("pagehide", () => {

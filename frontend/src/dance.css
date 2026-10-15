@@ -2,4 +2,13 @@
 select{display:block;width:100%;padding:12px;margin-top:8px;border:1px solid #bbb;border-radius:8px;background:white;font:inherit}select:focus-visible{outline:3px solid #b34d30;outline-offset:3px}
 button[hidden],a[hidden],video[hidden]{display:none}#record{background:#69466f}#record-status{color:#666;line-height:1.5}.download-recording{display:block;margin:12px 0;padding:14px;border-radius:10px;background:#273b2b;color:#fff;text-align:center;text-decoration:none}#recording-preview{width:100%;margin-top:10px;border-radius:12px;background:#141815}#resume-music{background:#69466f}#music-status{color:#626457}
 .stage-column{min-width:0}.recording-panel{margin-top:16px}.recording-panel p{font-size:13px;line-height:1.5}
+.stage #output,.stage #camera{display:none}
+.stage.is-preview #camera{display:block;inset:0;width:100%;height:100%;border:0;border-radius:0;z-index:1}
+.stage.is-live #output{display:block;z-index:1}
+.stage.is-live #camera{display:block;inset:auto 16px 16px auto;width:25%;height:auto;z-index:2}
+.stage.is-preview #placeholder,.stage.is-live #placeholder{display:none}
+#fullscreen{z-index:3}
+#placeholder{position:relative;z-index:1;color:#f6f3ea;font-size:14px;letter-spacing:1.4px;max-width:320px}
+#status:empty{display:none}
+#status.is-error{color:#9e3c2a;background:#f8e6e1}
 .demo-intro h1{font-size:clamp(24px,3vw,34px);line-height:1.2;margin:8px 0 24px;font-weight:500}

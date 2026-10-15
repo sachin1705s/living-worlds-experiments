@@ -1,7 +1,21 @@
+import { cpSync } from "fs";
+import { join, resolve } from "path";
 import { defineConfig } from "vite";
-import { resolve } from "path";
+
+function pdfjsAssets() {
+  const root = join(__dirname, "node_modules", "pdfjs-dist");
+  return {
+    name: "pdfjs-assets",
+    closeBundle() {
+      for (const dir of ["standard_fonts", "cmaps"]) {
+        cpSync(join(root, dir), join(__dirname, "dist", "pdfjs", dir), { recursive: true });
+      }
+    },
+  };
+}
 
 export default defineConfig({
+  plugins: [pdfjsAssets()],
   optimizeDeps: {
     exclude: ["@reactor-team/js-sdk", "@reactor-models/vidu-s2-editing", "@reactor-models/vidu-s2-avatar"],
     include: ["@reactor-team/js-sdk > awaitqueue", "react", "react/jsx-runtime"],

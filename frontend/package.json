@@ -12,7 +12,8 @@
     "@mediapipe/tasks-vision": "^0.10.18",
     "@reactor-models/vidu-s2-avatar": "^0.5.0",
     "@reactor-models/vidu-s2-editing": "^0.3.0",
-    "@reactor-team/js-sdk": "^3.0.2"
+    "@reactor-team/js-sdk": "^3.0.2",
+    "pdfjs-dist": "^4.10.38"
   },
   "devDependencies": {
     "vite": "^5.4.0"

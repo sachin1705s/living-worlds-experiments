@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "node scripts/dev-showcase.mjs",
-    "install:all": "npm --prefix frontend ci && npm --prefix backend ci && npm --prefix demos/off-season ci && npm --prefix demos/news-studio ci",
-    "build": "npm --prefix frontend run build && npm --prefix demos/off-season run build && npm --prefix demos/news-studio run build"
+    "install:all": "npm --prefix frontend ci && npm --prefix backend ci && npm --prefix demos/news-studio ci && npm --prefix demos/kahani ci",
+    "build": "npm --prefix frontend run build && npm --prefix demos/news-studio run build"
   }
 }

@@ -74,7 +74,7 @@ export function einsteinRoutes(req, res, next) {
   if (!['/api/character/chat', '/api/character/tts'].includes(req.path)) return next();
   res.set('Cache-Control', 'no-store');
   const runtimeConfig = {
-    geminiApiKey: typeof req.body?.geminiApiKey === 'string' ? req.body.geminiApiKey.trim() : process.env.GEMINI_API_KEY,
+    geminiApiKey: process.env.GEMINI_API_KEY,
     smallestApiKey: process.env.SMALLEST_API_KEY,
   };
   const model = 'gemini-2.5-flash';

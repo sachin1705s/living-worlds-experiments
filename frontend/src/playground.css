@@ -129,6 +129,48 @@ textarea:focus {
 
 .char-count.over { color: #ff6b6b; }
 
+.choices {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+button.choice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+button.choice strong {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+button.choice span {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+button.choice[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: #2a2214;
+}
+
+button.choice:disabled {
+  background: transparent;
+  opacity: 0.55;
+}
+
 .actions {
   display: flex;
   flex-direction: column;

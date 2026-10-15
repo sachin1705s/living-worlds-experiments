@@ -6,7 +6,8 @@
   <aside><form id="roast-form">
     
     <label>Your idea or follow-up<textarea id="idea" required maxlength="2000" placeholder="We’re building Uber for houseplants. Our moat is…"></textarea></label>
-    <label>Import pitch text<input id="pitch" type="file" accept=".txt,.md,text/plain,text/markdown" /></label><p class="hint">2,000 characters max. Text only; no URL or PDF imports.</p>
+    <label>Import a pitch<input id="pitch" type="file" accept=".txt,.md,.pdf,text/plain,text/markdown,application/pdf" /></label><p class="hint">PDF, text, or Markdown. The first 2,000 characters are used.</p>
+    <p id="status" role="status"></p>
     <button id="start" class="demo-button">Roast me ↗</button>
-  </form><button id="send" class="demo-button demo-button--secondary" disabled>Send follow-up</button><p id="status" role="status">Automatic stop after 5 minutes.</p></aside></div>
+  </form><button id="send" class="demo-button demo-button--secondary" disabled>Send follow-up</button></aside></div>
 </main><script type="module" src="/src/roast.js"></script></body></html>

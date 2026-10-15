@@ -7,7 +7,7 @@
     <div class="layout">
       <section class="stage" id="stage" aria-label="Full-frame editing stage">
         <video id="output" autoplay muted playsinline></video>
-        <div id="placeholder">YOUR NEW LOOK APPEARS HERE</div>
+        <div id="placeholder">PRESS CHECK MY DRIP TO ALLOW THE CAMERA</div>
         <video id="camera" autoplay muted playsinline aria-label="Your camera preview"></video>
         <button id="fullscreen" type="button">Full screen ↗</button>
       </section>
@@ -17,8 +17,8 @@
         <button id="apply" disabled>Apply look</button>
         <div hidden><input id="song" type="file" /><audio id="music"></audio><p id="song-name"></p></div><h2>02 / Go live</h2>
         <form id="connect"><button id="start" class="demo-button">Check my drip ↗</button></form>
+        <p id="status" role="status"></p>
         <button id="stop" class="stop demo-button demo-button--stop" type="button">Stop</button>
-        <p id="status" role="status" aria-live="polite">Camera starts only when you connect. Paid sessions stop after 5 minutes.</p>
       </aside>
     </div>
   </main><script type="module" src="/src/dance.js"></script>

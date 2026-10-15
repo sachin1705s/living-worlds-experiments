@@ -120,8 +120,6 @@ const presetRowEl = document.getElementById("preset-row");
 const promptForm = document.getElementById("prompt-form");
 const promptInput = document.getElementById("prompt-input");
 const btnStop = document.getElementById("btn-stop");
-const statusEl = document.getElementById("status");
-const statusText = document.getElementById("status-text");
 const debugHudEl = document.getElementById("debug-hud");
 
 // ---- One Euro filter (identical algorithm to draw.js's OneEuro) ----------
@@ -264,8 +262,7 @@ onTrack((stream) => {
 onStatus((s) => {
   streaming = s === "ready";
   lastStreamStatus = s;
-  if (s === "connecting" || s === "waiting") setHint("Connecting to the model…", true);
-  else if (s === "ready") setHint("Form the frame with both hands to reveal the AI edit.");
+  if (s === "ready") setHint("Form the frame with both hands to reveal the AI edit.");
 });
 
 onStreamError((err) => {
@@ -278,13 +275,10 @@ onStreamError((err) => {
 async function startStream() {
   if (!running || connecting) return;
   connecting = true;
-  setHint("Connecting to the model…", true);
   try {
     await connectStream(MODEL_ID, webcamTrack, currentPrompt, { userApiKey: getOwnApiKey() });
   } catch (err) {
     console.error("[finger-frame] connectStream failed:", err);
-    setHint(`Could not connect. ${friendlyStreamError(err)} Use Stop, then try again.`, true);
-    setStatus(friendlyStreamError(err), true);
   } finally {
     connecting = false;
   }
@@ -755,9 +749,4 @@ function setHint(text, sticky = false) {
   if (!sticky) hintTimer = setTimeout(() => hintEl.classList.add("is-hidden"), 4000);
 }
 
-function setStatus(text, isError = false) {
-  statusText.textContent = text;
-  statusEl.classList.toggle("is-error", isError);
-  statusEl.classList.remove("is-hidden");
-  setTimeout(() => statusEl.classList.add("is-hidden"), 4000);
-}
+function setStatus() {}

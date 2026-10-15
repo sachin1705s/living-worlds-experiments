@@ -1,0 +1,106 @@
+{
+  "opening-1.mp3": {
+    "key": "opening-1",
+    "text_hash": "c73ccbc01faffe0ec879af97f54c0bd11e3624129b044db52d5f8cbdd3eb662e",
+    "request_hash": "1ef0260bedf020bf61e93f6553ebb5842f3e97080b81a8a2880bdd8df0f3912c",
+    "model": "s1",
+    "reference_id": "933563129e564b19a115bedd57b7406a",
+    "generated_at": "2026-08-23T00:47:31.435Z"
+  },
+  "opening-2.mp3": {
+    "key": "opening-2",
+    "text_hash": "06ea81b0c5d1e34f05d799ebed7b55e0b398ee2691ed70ae8906db2767a16673",
+    "request_hash": "3a72b76e1fa99afef74b17c46fe7956b3ed46b0b2dc3e12ee3474c20ddb59af4",
+    "model": "s1",
+    "reference_id": "933563129e564b19a115bedd57b7406a",
+    "generated_at": "2026-08-23T00:47:33.113Z"
+  },
+  "opening-3.mp3": {
+    "key": "opening-3",
+    "text_hash": "b34560494c66d046d955cca58d14a200515573c61bc9692156f679143612ab25",
+    "request_hash": "3ed959a23f81ba936d4d19050af35237ae3d74ff48799adca7727ee027952a06",
+    "model": "s1",
+    "reference_id": "933563129e564b19a115bedd57b7406a",
+    "generated_at": "2026-08-23T00:47:35.735Z"
+  },
+  "decision-1-pose.mp3": {
+    "key": "decision-1-pose",
+    "text_hash": "d8d08403cae3cd62c93d6b8db9dacf64e18686888eab210b316e2f5f9ab5b5c9",
+    "request_hash": "db1ef0cdbd398646df931e33a7ae7034944abf64ab33299076a32cc040a4840e",
+    "model": "s1",
+    "reference_id": "933563129e564b19a115bedd57b7406a",
+    "generated_at": "2026-08-23T00:47:38.257Z"
+  },
+  "bridge-clever.mp3": {
+    "key": "bridge-clever",
+    "text_hash": "89f4bd077daaf885f6f1c7e6e51941d70ce4a435ac2d37f3f9b3dc3d37d73e1d",
+    "request_hash": "b08619717f592a46a05d0f24b21a4a2b76f15936453e84eb77d68dc27fb2af79",
+    "model": "s1",
+    "reference_id": "933563129e564b19a115bedd57b7406a",
+    "generated_at": "2026-08-23T00:47:39.801Z"
+  },
+  "bridge-reckless.mp3": {
+    "key": "bridge-reckless",
+    "text_hash": "20674adce468b43ced3c88e7caad0eb4a0c98b60da8fcd98bf9090a290d0e2f7",
+    "request_hash": "5b2c851e018a5c71e80e7ff4c0130480dd11df1fc057b133eb0d90b3817ced34",
+    "model": "s1",
+    "reference_id": "933563129e564b19a115bedd57b7406a",
+    "generated_at": "2026-08-23T00:47:41.115Z"
+  },
+  "bridge-kind.mp3": {
+    "key": "bridge-kind",
+    "text_hash": "4d4247c45f6d59de70d4a6bee850012c3e17444e26394bb723bdadea40c20d25",
+    "request_hash": "60a160af9fbfad378a4d7b8512ceb9f5beaf89e93206e398afb01fc066cecd6b",
+    "model": "s1",
+    "reference_id": "933563129e564b19a115bedd57b7406a",
+    "generated_at": "2026-08-23T00:47:42.691Z"
+  },
+  "bridge-selfish.mp3": {
+    "key": "bridge-selfish",
+    "text_hash": "3d856e4b1436c791171e54f7a8ddfd690ba558a583b1475be47dff94287e2b12",
+    "request_hash": "97050b4c332a1b066d5674de47b0f93266cee3d2dee192cf5b10a8e1e7bebe3d",
+    "model": "s1",
+    "reference_id": "933563129e564b19a115bedd57b7406a",
+    "generated_at": "2026-08-23T00:47:44.069Z"
+  },
+  "bridge-unclear-reprompt.mp3": {
+    "key": "bridge-unclear-reprompt",
+    "text_hash": "66e5d4ec17ad64c73256b16ddbc9fd4ae51e1b3d11c5beaa1397d2346035f417",
+    "request_hash": "64bf8dd560261bb6cd3346c4508014fd4351dc870a987fdf93398088051b7d0f",
+    "model": "s1",
+    "reference_id": "933563129e564b19a115bedd57b7406a",
+    "generated_at": "2026-08-23T00:47:45.899Z"
+  },
+  "moral-clever.mp3": {
+    "key": "moral-clever",
+    "text_hash": "a1a3cbee5697b676ad9e8283959088b8f3c09240f7bd482bdbf8f0519b94ce8d",
+    "request_hash": "bfd97a8707ee8ff5aa907285ee0f21c2a92ace6fadcc610388f21161c7f96050",
+    "model": "s1",
+    "reference_id": "933563129e564b19a115bedd57b7406a",
+    "generated_at": "2026-08-23T00:47:48.910Z"
+  },
+  "moral-kind.mp3": {
+    "key": "moral-kind",
+    "text_hash": "e51baf633c522cc4c4f98aae2551969836658e52499c5b43abaeff5da8a2ba55",
+    "request_hash": "0a63fc731f3b932b13c99c2a5bb7e726688c5515cc89f00c0639be0c7aa030e4",
+    "model": "s1",
+    "reference_id": "933563129e564b19a115bedd57b7406a",
+    "generated_at": "2026-08-23T00:47:51.319Z"
+  },
+  "moral-reckless.mp3": {
+    "key": "moral-reckless",
+    "text_hash": "cb2136a552f53a72f7ae8ed41a773cef8a19c029858129a59e9963e3d7d39194",
+    "request_hash": "dba6ea26f660313445f1a86afdaa188519de4a6a120f2b6186e7d70331814959",
+    "model": "s1",
+    "reference_id": "933563129e564b19a115bedd57b7406a",
+    "generated_at": "2026-08-23T00:47:53.806Z"
+  },
+  "moral-selfish.mp3": {
+    "key": "moral-selfish",
+    "text_hash": "70e337459713c5ad4751ef9c596c1296f39f5b26c5197aec3f9d44f26e9c7a6c",
+    "request_hash": "96826def9ca5011d8f8e3f2c9154586ccd77e667f68e2952c656a4a179e3ebf4",
+    "model": "s1",
+    "reference_id": "933563129e564b19a115bedd57b7406a",
+    "generated_at": "2026-08-23T00:47:55.994Z"
+  }
+}

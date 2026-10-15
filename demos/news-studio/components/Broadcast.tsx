@@ -13,7 +13,7 @@ import {
   type DeckStats,
   type ViewerTake,
 } from "./Deck";
-import { ChannelBug, Clock, CommunityPanel, LowerThird, StatusRail, Ticker } from "./Chrome";
+import { ChannelBug, Clock, CommunityPanel, LowerThird, Ticker } from "./Chrome";
 import { ReactorMark } from "./ReactorMark";
 import { registerShowcaseStop, stopShowcase } from "./ShowcaseBridge";
 
@@ -88,8 +88,8 @@ export function Broadcast() {
   const [meta, setMeta] = useState<ClipMeta | null>(null);
   const [stats, setStats] = useState<DeckStats | null>(null);
   const [preview, setPreview] = useState<Segment[]>([]);
-  const [errors, setErrors] = useState<string[]>([]);
-  const [airtime, setAirtime] = useState(0);
+  const [, setErrors] = useState<string[]>([]);
+  const [, setAirtime] = useState(0);
 
   /** Off air because nobody was watching, as opposed to never started. */
   const [pausedForIdle, setPausedForIdle] = useState(false);
@@ -120,7 +120,7 @@ export function Broadcast() {
   /** When the audience last stood at zero, for the empty-room shutdown. */
   const emptySince = useRef<number | null>(null);
   /** Live balance and the rate it is falling, which is how many sessions are up. */
-  const [credits, setCredits] = useState<{ balance: number; perSecond: number | null } | null>(null);
+  const [, setCredits] = useState<{ balance: number; perSecond: number | null } | null>(null);
   const lastBalance = useRef<{ balance: number; at: number } | null>(null);
   const originId = useRef<string>("");
   const [comments, setComments] = useState<Comment[]>([]);
@@ -991,15 +991,6 @@ export function Broadcast() {
             Stop broadcast · releases the GPU
           </button>
         )}
-
-        <StatusRail
-          airtime={airtime}
-          rotating={rotating}
-          errors={errors}
-          transmitMode={transmitMode}
-          watching={watching}
-          credits={opsMode ? credits : null}
-        />
 
         <CommunityPanel comments={comments} onPost={postComment} />
 

@@ -13,7 +13,6 @@
       </section>
       <section class="recording-panel" aria-label="Record your dance">
         <button id="record" type="button" disabled>● Record dance</button>
-        <p id="record-status" role="status">Records character + music. Download before closing.</p>
         <a id="download-recording" class="download-recording" hidden>Download recording ↓</a>
         <video id="recording-preview" controls playsinline hidden></video>
       </section></div>
@@ -22,12 +21,12 @@
         <label>Or upload a character<input id="reference" type="file" accept="image/png,image/jpeg,image/webp" /></label><p id="selection">Selected: Robot</p>
         <button id="apply" disabled>Apply character to live dance</button>
         <audio id="music" loop preload="none" hidden></audio>
-        <p id="song-name" hidden></p><p id="music-status" role="status" hidden></p>
+        <p id="song-name" hidden></p>
         <button id="resume-music" type="button" hidden>♫ Enable music</button>
         <h2>02 / Take the stage</h2>
         <form id="connect"><button id="start" class="demo-button">Start dancing ↗</button></form>
+        <p id="status" role="status"></p>
         <button id="stop" class="stop demo-button demo-button--stop" type="button">Stop</button>
-        <p id="status" role="status" aria-live="polite">Camera starts only when you connect. Paid sessions stop after 5 minutes.</p>
       </aside>
     </div>
   </main><script type="module" src="/src/dance.js"></script>

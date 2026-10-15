@@ -1,3 +1,4 @@
+import "./experiment-shell.css";
 import {
   initSession,
   onState,
@@ -8,54 +9,72 @@ import {
   setLookH,
   setLookV,
   startGeneration,
+  animateDrawing,
   resetSession,
   disconnectSession,
 } from "./reactor.js";
 
+if (window.parent !== window) document.documentElement.classList.add("framed");
+
+const STEP_PROMPT = "The video presents a first-person walk through the world of this drawing, preserving its subjects, layout, colors, and visual style. The ground continues underfoot and the scene opens ahead. Gentle, curious wonder.";
+
 const seedFileEl = document.getElementById("seed-file");
 const seedPreviewEl = document.getElementById("seed-preview");
-const btnStart = document.getElementById("btn-start");
+const btnStep = document.getElementById("btn-step");
+const btnLive = document.getElementById("btn-live");
 const btnReset = document.getElementById("btn-reset");
-const stateEl = document.getElementById("state-display");
-const logEl = document.getElementById("log");
 const videoEl = document.getElementById("world-video");
-const playbackEl = document.getElementById("playback-status");
-
-videoEl.addEventListener("playing", () => { playbackEl.hidden = true; });
-videoEl.addEventListener("waiting", () => {
-  playbackEl.hidden = false;
-  playbackEl.textContent = "Waiting for video frames…";
-});
-videoEl.addEventListener("error", () => {
-  playbackEl.hidden = false;
-  playbackEl.textContent = "Video playback failed. Stop the session and reconnect.";
-});
+const controlsHint = document.getElementById("controls-hint");
 
 let connected = false;
+let sessionModel = null;
+let activeMode = null;
 let seedRef = null;
 let started = false;
 let runVersion = 0;
 const stopEl = document.getElementById("btn-stop");
 
+function selectedFile() {
+  return seedFileEl.files?.[0] || null;
+}
+
+function setChoicesEnabled(enabled) {
+  const ready = enabled && Boolean(selectedFile());
+  btnStep.disabled = !ready;
+  btnLive.disabled = !ready;
+}
+
+function setActiveChoice(mode) {
+  activeMode = mode;
+  btnStep.setAttribute("aria-pressed", mode === "step" ? "true" : "false");
+  btnLive.setAttribute("aria-pressed", mode === "live" ? "true" : "false");
+  if (mode === "step") {
+    controlsHint.hidden = false;
+    controlsHint.textContent = "WASD — Move  ·  Arrows — Look";
+  } else if (mode === "live") {
+    controlsHint.hidden = false;
+    controlsHint.textContent = "Your drawing is coming to life";
+  } else {
+    controlsHint.hidden = true;
+  }
+}
+
 async function stopPlayground() {
   runVersion += 1;
   connected = false;
+  sessionModel = null;
   started = false;
-  playbackEl.hidden = false;
-  playbackEl.textContent = "Session stopped";
   seedRef = null;
   btnReset.disabled = true;
-  btnStart.disabled = true;
+  setChoicesEnabled(false);
+  setActiveChoice(null);
   lastMv = lastLH = lastLV = "idle";
   try {
     await disconnectSession();
-    stateEl.textContent = "disconnected";
-    log("Session disconnected.", "evt");
   } catch {
-    log("Disconnect failed. Check your Reactor dashboard to confirm the session has ended.", "err");
     throw new Error("Reactor disconnect failed");
   } finally {
-    btnStart.disabled = false;
+    setChoicesEnabled(true);
   }
 }
 
@@ -72,84 +91,88 @@ window.addEventListener("message", async (event) => {
 
 window.addEventListener("pagehide", () => { void disconnectSession(); });
 
-function log(text, cls = "") {
-  const div = document.createElement("div");
-  div.className = "entry " + cls;
-  const ts = new Date().toLocaleTimeString();
-  div.textContent = `${ts}  ${text}`;
-  logEl.prepend(div);
-  while (logEl.childElementCount > 50) logEl.lastChild.remove();
-}
+function log() {}
 
 seedFileEl.addEventListener("change", () => {
   const f = seedFileEl.files?.[0];
   if (!f) {
     seedPreviewEl.removeAttribute("src");
     seedRef = null;
+    setChoicesEnabled(false);
     return;
   }
   seedPreviewEl.src = URL.createObjectURL(f);
   seedRef = null; // re-upload required
+  setChoicesEnabled(true);
   log(`selected ${f.name} (${(f.size / 1024).toFixed(0)} kB)`);
 });
 
-onState((s) => {
-  stateEl.textContent = JSON.stringify(s, null, 2);
-});
+onState(() => {});
 
-async function ensureConnected() {
-  if (connected) return;
-  log("connecting…");
-  playbackEl.hidden = false;
-  playbackEl.textContent = "Connecting to Reactor…";
-  await initSession(videoEl);
+async function ensureConnected(modelName) {
+  if (connected && sessionModel === modelName) return;
+  if (connected) {
+    await disconnectSession();
+    connected = false;
+    sessionModel = null;
+    seedRef = null;
+  }
+  await initSession(videoEl, undefined, modelName);
   connected = true;
+  sessionModel = modelName;
   log("connected", "evt");
   btnReset.disabled = false;
 }
 
-btnStart.addEventListener("click", async () => {
-  const file = seedFileEl.files?.[0];
-  if (!file) return log("need a seed image", "err");
-  if (!file.type.startsWith("image/")) return log("Choose a reference picture.", "err");
+async function startMode(mode) {
+  const file = selectedFile();
+  if (!file) return log("Choose a drawing first.", "err");
+  if (!file.type.startsWith("image/")) return log("Choose a picture of a drawing.", "err");
 
-  btnStart.disabled = true;
+  setChoicesEnabled(false);
   const version = ++runVersion;
   const checkActive = () => {
     if (version !== runVersion) throw new Error("Session stopped");
   };
   try {
-    await ensureConnected();
+    const modelName = mode === "live" ? "helios" : "lingbot";
+    await ensureConnected(modelName);
     checkActive();
 
-    if (!seedRef) {
-      log("uploading seed image…");
-      const uploaded = await uploadImage(file);
+    if (mode === "live") {
+      log("animate it…");
+      await animateDrawing(file, "animate it");
       checkActive();
-      seedRef = uploaded;
-      log("upload ok", "evt");
+      log("the drawing is coming to life", "evt");
+    } else {
+      if (!seedRef) {
+        log("uploading drawing…");
+        seedRef = await uploadImage(file);
+        checkActive();
+        log("upload ok", "evt");
+      }
+      log("set_image…");
+      await setImageRef(seedRef);
+      checkActive();
+      await setPrompt(STEP_PROMPT);
+      checkActive();
+      log("start…");
+      await startGeneration();
+      checkActive();
+      log("you can step inside", "evt");
     }
 
-    log("set_image…");
-    await setImageRef(seedRef);
-    checkActive();
-
-    await setPrompt("A living world matching the reference image, preserving its subjects, layout, colors, and visual style. Subtle natural movement and a consistent atmosphere.");
-    checkActive();
-
-    log("start…");
-    await startGeneration();
-    checkActive();
-    log("start sent", "evt");
-    if (videoEl.readyState < 2) playbackEl.textContent = "Generation started. Waiting for video frames…";
+    setActiveChoice(mode);
     started = true;
   } catch (e) {
-    log(`error: ${e.message}`, "err");
-    console.error(e);
+    if (version === runVersion) console.error(e);
   } finally {
-    if (version === runVersion) btnStart.disabled = false;
+    if (version === runVersion) setChoicesEnabled(true);
   }
-});
+}
+
+btnStep.addEventListener("click", () => { void startMode("step"); });
+btnLive.addEventListener("click", () => { void startMode("live"); });
 
 btnReset.addEventListener("click", async () => {
   log("reset…");
@@ -174,7 +197,7 @@ let lastLV = "idle";
 
 window.addEventListener("keydown", (e) => {
   if (e.repeat) return;
-  if (!started) return;
+  if (!started || activeMode !== "step") return;
   // Don't intercept keys while the user is typing in a textarea.
   if (e.target?.tagName === "TEXTAREA" || e.target?.tagName === "INPUT") return;
 
@@ -210,7 +233,7 @@ window.addEventListener("keydown", (e) => {
 });
 
 window.addEventListener("keyup", (e) => {
-  if (!started) return;
+  if (!started || activeMode !== "step") return;
   if (e.target?.tagName === "TEXTAREA" || e.target?.tagName === "INPUT") return;
 
   const k = e.key;
@@ -240,8 +263,8 @@ window.addEventListener("keyup", (e) => {
 
 });
 
-btnStart.disabled = false;
-log("Ready. Choose a reference picture and connect.");
+setChoicesEnabled(true);
+log("Choose a drawing, then step inside it or make it come to life.");
 
 const savedDrawing = sessionStorage.getItem("drawing-seed");
 if (savedDrawing) {
@@ -251,7 +274,7 @@ if (savedDrawing) {
     transfer.items.add(new File([blob], "my-drawing.png", { type: "image/png" }));
     seedFileEl.files = transfer.files;
     seedFileEl.dispatchEvent(new Event("change"));
-    log("Your drawing is ready. Connect to explore.");
+    log("Your drawing is ready. Step inside it, or make it come to life.");
   }).catch(() => log("Could not load the drawing. Please upload it manually.", "err"));
 }
 

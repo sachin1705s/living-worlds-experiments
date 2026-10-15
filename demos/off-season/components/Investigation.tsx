@@ -31,7 +31,7 @@ import HarnessPanel from "@/components/HarnessPanel";
 import Hotspots from "@/components/Hotspots";
 import Report from "@/components/Report";
 import { registerShowcaseStop } from "@/components/ShowcaseBridge";
-import { GEMINI_KEY, REACTOR_KEY, writeKey, forgetToken, readKey } from "@/lib/keys";
+import { GEMINI_KEY, REACTOR_KEY, writeKey, forgetToken } from "@/lib/keys";
 
 type Phase = "waiting" | "building" | "playing" | "held" | "failed";
 
@@ -54,10 +54,7 @@ interface PendingRepair {
 }
 
 /** fast-h3 bills 70 credits a second; 10,000 credits is a dollar. */
-const DOLLARS_PER_SECOND = 70 / 10000;
-const SESSION_CAP_MS = 20 * 60 * 1000;
-
-export default function Investigation({ geminiKey }: { geminiKey: string }) {
+export default function Investigation() {
   const router = useRouter();
   const { sessionId, status, connect, disconnect, enqueue, play, stop, setAutoplay, setClipSeconds, setFlushOnClipEnd } =
     useFastH3();
@@ -86,16 +83,11 @@ export default function Investigation({ geminiKey }: { geminiKey: string }) {
   const [finding, setFinding] = useState<Evidence | null>(null);
   const [drawer, setDrawer] = useState<"file" | "harness" | null>("file");
   const [snapshot, setSnapshot] = useState<FastH3StateUpdateMessage | null>(null);
-  const [errors, setErrors] = useState<string[]>([]);
   const [muted, setMuted] = useState(false);
-  const [harness, setHarness] = useState<HarnessSettings>({
-    ...DEFAULT_HARNESS,
-    enabled: Boolean(geminiKey),
-  });
+  const [harness, setHarness] = useState<HarnessSettings>(DEFAULT_HARNESS);
   const [repairNote, setRepairNote] = useState<{ prompt: string; verdict: Verdict } | null>(null);
   const [filing, setFiling] = useState(false);
   const [readyAt, setReadyAt] = useState<number | null>(null);
-  const [now, setNow] = useState(Date.now());
   const [cachedUrl, setCachedUrl] = useState<string | null>(null);
 
   const beatRef = useRef<Beat | null>(null);
@@ -108,10 +100,9 @@ export default function Investigation({ geminiKey }: { geminiKey: string }) {
   const recorder = useRef<{ rec: MediaRecorder; key: string; chunks: BlobPart[] } | null>(null);
 
   const currentRoom = ROOM_BY_ID[room];
-  const noteError = useCallback(
-    (msg: string) => setErrors((e) => [msg, ...e].slice(0, 3)),
-    [],
-  );
+  const noteError = useCallback((msg: string) => {
+    console.error(msg);
+  }, []);
 
   /* ------------------------------------------------------------ the picture */
 
@@ -157,11 +148,6 @@ export default function Investigation({ geminiKey }: { geminiKey: string }) {
       await setClipSeconds({ seconds: 8 });
     })();
   }, [status, readyAt, setAutoplay, setClipSeconds, setFlushOnClipEnd]);
-
-  useEffect(() => {
-    const id = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(id);
-  }, []);
 
   useEffect(() => {
     return () => {
@@ -337,10 +323,10 @@ export default function Investigation({ geminiKey }: { geminiKey: string }) {
 
   const watching = useMemo(
     () =>
-      harness.enabled && geminiKey && phase === "playing" && beat && !beat.fromCache
+      harness.enabled && phase === "playing" && beat && !beat.fromCache
         ? { beat: beat.key, take: beat.take, prompt: beat.prompt, intent: beat.intent }
         : null,
-    [harness.enabled, geminiKey, phase, beat],
+    [harness.enabled, phase, beat],
   );
 
   const onRepair = useCallback(
@@ -368,7 +354,6 @@ export default function Investigation({ geminiKey }: { geminiKey: string }) {
   const { verdicts, latest, sampled, busy, reset: resetHarness } = useFrameHarness({
     videoRef: liveRef,
     watching,
-    geminiKey,
     settings: harness,
     onRepair,
   });
@@ -403,29 +388,6 @@ export default function Investigation({ geminiKey }: { geminiKey: string }) {
     writeKey(GEMINI_KEY, "");
     router.replace("/");
   }), [disconnect, router]);
-
-  /* ------------------------------------------------------------------ readout */
-
-  const elapsedMs = readyAt ? now - readyAt : 0;
-  const spend = (elapsedMs / 1000) * DOLLARS_PER_SECOND;
-  const remaining = Math.max(0, SESSION_CAP_MS - elapsedMs);
-  const clock = (ms: number) => {
-    const s = Math.floor(ms / 1000);
-    return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
-  };
-
-  const building = snapshot ? snapshot.generation_queued : 0;
-
-  const statusLine = () => {
-    if (!entered) return "Session closed";
-    if (status !== "ready") return status === "waiting" ? "GPU warming" : status;
-    if (beat?.fromCache) return "From your notes";
-    if (phase === "building") return building > 1 ? `Building — ${building} in the queue` : "Building";
-    if (phase === "playing") return "On the tracks";
-    if (phase === "held") return "Holding";
-    if (phase === "failed") return "Shot failed";
-    return "Idle";
-  };
 
   if (filing) {
     return (
@@ -509,15 +471,11 @@ export default function Investigation({ geminiKey }: { geminiKey: string }) {
                 <button className="tab" data-on="true" onClick={enterPier}>
                   Enter the pier
                 </button>
-                <p className="small">Billing begins when the GPU is assigned.</p>
               </div>
             )}
 
             {entered && phase === "building" && (
               <div className="slate">
-                <p className="small dots">
-                  {status === "ready" ? "Developing the shot" : "Opening a session"}
-                </p>
                 <p className="big">{currentRoom.name}</p>
                 {repairNote && (
                   <p className="small" style={{ color: "var(--amber)" }}>
@@ -571,7 +529,7 @@ export default function Investigation({ geminiKey }: { geminiKey: string }) {
               verdicts={verdicts}
               sampled={sampled}
               busy={busy}
-              hasKey={Boolean(geminiKey)}
+              hasKey
               repairNote={repairNote}
               onClear={resetHarness}
             />
@@ -585,31 +543,11 @@ export default function Investigation({ geminiKey }: { geminiKey: string }) {
           <span className="stamp">{currentRoom.stamp}</span>
         </div>
         <div className="readouts">
-          <span className={phase === "playing" ? "live" : undefined}>{statusLine()}</span>
           <span>
             Evidence <b>{found.length}</b>/{ALL_EVIDENCE.length}
           </span>
-          <span>
-            Session <b>{clock(elapsedMs)}</b>
-          </span>
-          <span>
-            Cap <b>{clock(remaining)}</b>
-          </span>
-          <span>
-            Spend <b>${spend.toFixed(2)}</b>
-          </span>
         </div>
       </footer>
-
-      {errors.length > 0 && (
-        <div style={{ position: "fixed", bottom: 66, right: 22, maxWidth: 380, zIndex: 40 }}>
-          {errors.map((e, i) => (
-            <div className="banner" key={`${e}-${i}`}>
-              {e}
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

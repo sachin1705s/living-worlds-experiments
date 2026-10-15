@@ -38,9 +38,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Malformed request body." }, { status: 400 });
   }
 
-  const { apiKey, prompt, intent, frames } = body;
+  const apiKey = process.env.GEMINI_API_KEY;
+  const { prompt, intent, frames } = body;
   if (!apiKey) {
-    return NextResponse.json({ error: "No Gemini key." }, { status: 400 });
+    return NextResponse.json({ error: "Vision check is unavailable." }, { status: 503 });
   }
   if (!frames?.length) {
     return NextResponse.json({ error: "No frames to look at." }, { status: 400 });

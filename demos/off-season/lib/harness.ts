@@ -48,7 +48,6 @@ interface Args {
   videoRef: React.RefObject<HTMLVideoElement | null>;
   /** The clip currently on the tracks, or null when nothing is playing. */
   watching: { beat: string; take: number; prompt: string; intent: string } | null;
-  geminiKey: string;
   settings: HarnessSettings;
   /** Called once per beat when the harness decides the shot has to be rebuilt. */
   onRepair: (repairedPrompt: string, verdict: Verdict) => void;
@@ -60,7 +59,7 @@ interface Args {
  * Gemini together with the prompt that asked for them. Two bad reads in a row
  * and it writes a corrected prompt and calls `onRepair`.
  */
-export function useFrameHarness({ videoRef, watching, geminiKey, settings, onRepair }: Args) {
+export function useFrameHarness({ videoRef, watching, settings, onRepair }: Args) {
   const [verdicts, setVerdicts] = useState<Verdict[]>([]);
   const [sampled, setSampled] = useState(0);
   const [latest, setLatest] = useState<Verdict | null>(null);
@@ -158,7 +157,7 @@ export function useFrameHarness({ videoRef, watching, geminiKey, settings, onRep
 
   /* ---- the check: hand the ring to Gemini on a slower clock ---- */
   useEffect(() => {
-    if (!settings.enabled || !watching || !geminiKey) return;
+    if (!settings.enabled || !watching) return;
 
     const run = async () => {
       const now = watchRef.current;
@@ -172,7 +171,6 @@ export function useFrameHarness({ videoRef, watching, geminiKey, settings, onRep
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            apiKey: geminiKey,
             prompt: now.prompt,
             intent: now.intent,
             frames,
@@ -247,7 +245,7 @@ export function useFrameHarness({ videoRef, watching, geminiKey, settings, onRep
 
     const id = window.setInterval(run, Math.max(1200, settings.checkEveryMs));
     return () => window.clearInterval(id);
-  }, [settings.enabled, settings.checkEveryMs, watching, geminiKey]);
+  }, [settings.enabled, settings.checkEveryMs, watching]);
 
   return { verdicts, latest, sampled, busy, reset };
 }
