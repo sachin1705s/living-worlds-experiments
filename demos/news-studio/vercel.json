@@ -1,5 +1,5 @@
 {
   "framework": "nextjs",
-  "installCommand": "npm ci",
+  "installCommand": "npx --yes npm@11.6.2 ci",
   "buildCommand": "npm run build"
 }
