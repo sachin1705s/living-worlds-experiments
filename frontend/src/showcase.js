@@ -11,7 +11,7 @@ const demos = {
   stylized: { title: "Stylized Worlds", provider: "04 / REACTOR · SANA-STREAMING", src: "/stylized.html", notice: "" },
   drip: { title: "Check Your Drip", provider: "05 / REACTOR · VIDU S2-EDITING", src: "/drip.html", notice: "" },
   news: { title: "News Studio", provider: "06 / REACTOR · FASTH3", src: import.meta.env.VITE_NEWS_STUDIO_URL || (import.meta.env.PROD ? "https://worlds-experiments-news.vercel.app/" : localApp(5192)), notice: "Your own live news channel." },
-  kahani: { title: "Kahani", provider: "07 / REACTOR · HAPPY OYSTER", src: import.meta.env.VITE_KAHANI_URL || localApp(5193), notice: "Tell the rabbit what to do." },
+  kahani: { title: "Kahani", provider: "07 / REACTOR · HAPPY OYSTER", src: import.meta.env.VITE_KAHANI_URL || (import.meta.env.PROD ? "https://worlds-experiments-kahani.vercel.app/" : localApp(5193)), notice: "Tell the rabbit what to do." },
 };
 
 function stopFrame(frame) {

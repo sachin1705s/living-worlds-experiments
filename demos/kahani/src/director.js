@@ -12,6 +12,8 @@ export class DirectorError extends Error {
   }
 }
 
+const playthroughTokens = new Map();
+
 const EMPTY_INPUT_RESULT = {
   spirit: "unclear",
   world_instruction:
@@ -67,7 +69,7 @@ export async function requestDirector(
           current_beat: currentBeat,
           prior_beats: priorBeats,
           kid_text: String(kidText),
-          ...(currentPlaythroughId ? { playthrough_id: currentPlaythroughId } : {}),
+          ...(currentPlaythroughId ? { playthrough_id: currentPlaythroughId, playthrough_state: playthroughTokens.get(currentPlaythroughId) } : {}),
         }),
         signal,
       });
@@ -82,7 +84,13 @@ export async function requestDirector(
         throw new DirectorError(message, { status: response.status });
       }
       try {
-        return assertDirectorResult(payload);
+        const result = assertDirectorResult(payload);
+        const state = response.headers?.get?.("X-Kahani-Playthrough-State");
+        if (state && currentPlaythroughId) {
+          playthroughTokens.set(currentPlaythroughId, state);
+          if (playthroughTokens.size > 10) playthroughTokens.delete(playthroughTokens.keys().next().value);
+        }
+        return result;
       } catch (error) {
         if (error instanceof DirectorSchemaError) {
           throw new DirectorError(`Invalid director response: ${error.message}`, { cause: error });

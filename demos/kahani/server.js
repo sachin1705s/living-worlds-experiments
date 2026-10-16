@@ -1,10 +1,11 @@
 import express from "express";
+import { readPlaythrough, signPlaythrough } from "./src/playthrough-token.js";
 import dotenv from "dotenv";
 import { createHash, randomUUID } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
-import { createServer as createViteServer } from "vite";
+
 import {
   DIRECTOR_SPIRITS,
   DIRECTOR_CHECKPOINTS,
@@ -141,6 +142,7 @@ app.post("/api/world-id", (req, res) => {
   if (!worldId || worldId.length > 500) {
     return res.status(400).json({ error: "worldId is required" });
   }
+  if (process.env.VERCEL) return res.json({ worldId: process.env.KAHANI_WORLD_ID || worldId });
   try {
     const existing = readFileSync(worldIdPath, "utf8").trim();
     if (existing && req.body?.ready !== true) return res.json({ worldId: existing });
@@ -154,6 +156,8 @@ app.post("/api/world-id", (req, res) => {
 });
 
 app.get("/api/world-id", (_req, res) => {
+  res.set("Cache-Control", "no-store");
+  if (process.env.KAHANI_WORLD_ID) return res.json({ worldId: process.env.KAHANI_WORLD_ID });
   try {
     const worldId = readFileSync(worldIdPath, "utf8").trim();
     return res.json({ worldId: worldId || null });
@@ -193,6 +197,8 @@ function getPlaythrough(req, res) {
     (typeof req.body?.playthrough_id === "string" && req.body.playthrough_id.trim()) ||
     req.get("x-kahani-playthrough-id");
   const playthroughId = requestedId || randomUUID();
+  const restored = readPlaythrough(req.body?.playthrough_state, playthroughId, process.env.KAHANI_STATE_SECRET);
+  if (restored) playthroughStates.set(playthroughId, restored);
   if (!playthroughStates.has(playthroughId)) playthroughStates.set(playthroughId, newPlaythroughState());
   req.playthroughId = playthroughId;
   res.set("X-Kahani-Playthrough-Id", playthroughId);
@@ -825,6 +831,8 @@ app.post("/api/director", async (req, res) => {
       state: playthroughState,
       geminiLatencyMs: call.latencyMs,
     });
+    const stateToken = signPlaythrough(req.playthroughId, playthroughState, process.env.KAHANI_STATE_SECRET);
+    if (stateToken) res.set("X-Kahani-Playthrough-State", stateToken);
     return res.json(result);
   } catch (error) {
     logDirectorCall(req, startedAt, {
@@ -840,6 +848,7 @@ app.post("/api/director", async (req, res) => {
 
 const isDev = process.argv.includes("--dev");
 if (isDev) {
+  const { createServer: createViteServer } = await import("vite");
   const vite = await createViteServer({
     server: {
       middlewareMode: true,
@@ -848,7 +857,7 @@ if (isDev) {
     appType: "spa",
   });
   app.use(vite.middlewares);
-} else {
+} else if (!process.env.VERCEL) {
   app.use(express.static(path.join(here, "dist")));
   app.use((_req, res) =>
     res.sendFile(path.join(here, "dist", "index.html")),
@@ -856,7 +865,7 @@ if (isDev) {
 }
 
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
-if (isMain) {
+if (isMain && !process.env.VERCEL) {
   const port = process.env.PORT || 5175;
   app.listen(port, () =>
     console.log(`kahani ${isDev ? "dev" : "production"} server on http://localhost:${port}`),
