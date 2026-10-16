@@ -430,6 +430,18 @@ function DeckInner({
   /** Nothing has been queued yet, so the next clip is the one keeping the
    *  screen black — it is built at the shortest length the model offers. */
   const openingClip = useRef(true);
+  const firstRefill = useRef(true);
+  const startupNews = useRef<Promise<Story[]> | null>(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    const { strand } = strandOnAir(openingUntil, new Date());
+    const params = new URLSearchParams({ categories: strand.categories.join(",") });
+    startupNews.current = fetch(`/api/news?${params}`, {
+      cache: "no-store", signal: controller.signal,
+    }).then(async (res) => res.ok ? ((await res.json()) as { stories: Story[] }).stories : [])
+      .catch(() => []);
+    return () => controller.abort();
+  }, [openingUntil]);
   /**
    * Incremented whenever this deck is torn down or restarted. Async work started
    * before that point checks it before acting, so a refill from a dead session
@@ -543,33 +555,26 @@ function DeckInner({
    * those items first because they are the freshest thing the channel has.
    */
   const gather = useCallback(
-    async (strand: Strand, widen: boolean, angle: string): Promise<Story[]> => {
+    async (strand: Strand, widen: boolean, angle: string, quick = false): Promise<Story[]> => {
       // Widening pulls the neighbouring desks in rather than going quiet: a
       // startup block short of startup news is still a technology block.
       const categories = widen
         ? Array.from(new Set([...strand.categories, ...program.categories, "top", "world"]))
         : strand.categories;
       const params = new URLSearchParams({ categories: categories.join(",") });
-      const res = await fetch(`/api/news?${params}`, { cache: "no-store" });
-      if (!res.ok) throw new Error(`News fetch failed (${res.status})`);
-      const { stories } = (await res.json()) as { stories: Story[] };
-
-      // Every block searches the web. RSS is fast and reliable but it is only
-      // as current as its publishers' feeds; a grounded search is what makes
-      // the channel's claim to be live true rather than decorative.
-      let live: Story[] = [];
-      try {
-        const wire = await fetch(`/api/wire?subject=${encodeURIComponent(angle)}`, {
-          cache: "no-store",
-        });
-        if (wire.ok) {
-          const body = (await wire.json()) as { stories?: Story[] };
-          live = body.stories ?? [];
-        }
-      } catch {
-        // Search failing is not worth taking the bulletin off air: the RSS wire
-        // has already delivered a full block on its own.
-      }
+      const feedRequest = quick && !widen && startupNews.current
+        ? startupNews.current
+        : fetch(`/api/news?${params}`, { cache: "no-store" })
+          .then(async (res) => {
+            if (!res.ok) throw new Error(`News fetch failed (${res.status})`);
+            return ((await res.json()) as { stories: Story[] }).stories;
+          });
+      // Fresh publisher copy opens the bulletin; subsequent blocks also search.
+      const searchRequest = quick ? Promise.resolve([] as Story[]) :
+        fetch(`/api/wire?subject=${encodeURIComponent(angle)}`, { cache: "no-store" })
+          .then(async (res) => res.ok ? ((await res.json()) as { stories?: Story[] }).stories ?? [] : [])
+          .catch(() => [] as Story[]);
+      const [stories, live] = await Promise.all([feedRequest, searchRequest]);
 
       const seen = new Set<string>();
       const all = [...live, ...stories].filter((s) => {
@@ -597,6 +602,8 @@ function DeckInner({
     // Read fresh each refill, so a block boundary changes what the channel
     // covers on the next batch without interrupting what is on air.
     const { strand } = strandOnAir(openingUntil, new Date());
+    const quick = firstRefill.current;
+    const refillEpoch = epoch.current;
 
     const angles = strand.searchAngles;
     const angle = angles[(runSeed.current + cycle.current) % angles.length];
@@ -625,13 +632,13 @@ function DeckInner({
       // Local history alone still prevents the worst of it.
     }
 
-    let all = await gather(strand, false, angle);
+    let all = await gather(strand, false, angle, quick);
     let fresh = all.filter((s) => !usedStoryIds.current.has(s.id));
 
     // The strand's own feeds are spent. Widen to the neighbouring desks before
     // considering anything already broadcast.
-    if (fresh.length < 4) {
-      all = await gather(strand, true, angle);
+    if (fresh.length < (quick ? 1 : 4)) {
+      all = await gather(strand, true, angle, quick);
       fresh = all.filter((s) => !usedStoryIds.current.has(s.id));
     }
 
@@ -668,7 +675,7 @@ function DeckInner({
       if (shot) produced.set(story.id, { id: story.id, shot });
     });
 
-    if (writeable.length) {
+    if (writeable.length && !quick) {
       try {
         const res = await fetch("/api/newsroom", {
           method: "POST",
@@ -709,7 +716,11 @@ function DeckInner({
       }
     }
 
-    const rundown = buildRundown(pool, program, strand, cycle.current++, produced);
+    if (epoch.current !== refillEpoch) return;
+    const rundown = buildRundown(pool, program, strand, cycle.current++, produced)
+      .filter((segment) => !quick || segment.kind !== "open");
+    firstRefill.current = false;
+    startupNews.current = null;
 
     pending.current = rundown;
     block.current = rundown;
@@ -753,6 +764,7 @@ function DeckInner({
   /** Queue one segment for building. */
   const queueSegment = useCallback(
     async (segment: Segment) => {
+      const queueEpoch = epoch.current;
       const strand = strandOnAir(openingUntil, new Date()).strand;
       const meta: ClipMeta = {
         id: segment.id,
@@ -777,6 +789,7 @@ function DeckInner({
           ? await frameFor(segment.story)
           : null;
 
+      if (queueEpoch !== epoch.current) return;
       const seconds = openingClip.current
         ? FIRST_CLIP_SECONDS
         : clipSecondsFor(segment, clipSeconds.current);
@@ -835,7 +848,14 @@ function DeckInner({
         // The session may have been torn down while the last await was in
         // flight; anything queued now would land in a stream nobody is watching.
         if (epoch.current !== startedAt) return;
+        // Generate the station introduction before waiting on any news APIs.
+        if (openingClip.current) {
+          const { strand } = strandOnAir(openingUntil, new Date());
+          await queueSegment(buildRundown([], program, strand, -1, new Map())[0]);
+          continue;
+        }
         if (pending.current.length === 0) await refill();
+        if (epoch.current !== startedAt) return;
         const next = pending.current[0];
         if (!next) break;
 
@@ -844,6 +864,7 @@ function DeckInner({
         if (boundary) {
           lastPackage.current = next.packageId ?? null;
           const viewer = await nextViewerSegment();
+          if (epoch.current !== startedAt) return;
           if (viewer) {
             await queueSegment(viewer);
             continue;
@@ -858,7 +879,7 @@ function DeckInner({
     } finally {
       feeding.current = false;
     }
-  }, [configured, nextViewerSegment, onError, queueSegment, refill]);
+  }, [configured, nextViewerSegment, onError, queueSegment, refill, openingUntil, program]);
 
   useFastH3StateUpdate((state) => {
     sessionState.current = state;

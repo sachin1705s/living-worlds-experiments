@@ -2,7 +2,7 @@
 <html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>Tech Roast · Vidu Avatar</title><link rel="stylesheet" href="/src/demo-buttons.css" /></head>
 <body><main>
   <header class="demo-intro"><h1>Pitch your idea. Get roasted.</h1></header>
-  <div class="layout"><section><div class="stage"><video id="avatar" autoplay muted playsinline></video><p id="placeholder">THE CRITIC WILL SEE YOU NOW.</p></div><audio id="voice" controls autoplay></audio><p class="hint">No sound? Press play. Camera and mic stay off.</p><div id="transcript" role="log" aria-live="polite"></div></section>
+  <div class="layout"><section><div class="stage"><img id="critic-preview" src="/thumbnails/tech-roast.png" alt="Your Tech Roast critic" fetchpriority="high" /><video id="avatar" autoplay muted playsinline poster="/thumbnails/tech-roast.png"></video><p id="placeholder">THE CRITIC WILL SEE YOU NOW.</p></div><audio id="voice" controls autoplay></audio><p class="hint">No sound? Press play. Camera and mic stay off.</p><div id="transcript" role="log" aria-live="polite"></div></section>
   <aside><form id="roast-form">
     
     <label>Your idea or follow-up<textarea id="idea" required maxlength="2000" placeholder="We’re building Uber for houseplants. Our moat is…"></textarea></label>

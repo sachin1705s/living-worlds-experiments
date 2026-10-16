@@ -143,7 +143,7 @@ app.post("/api/world-id", (req, res) => {
   }
   try {
     const existing = readFileSync(worldIdPath, "utf8").trim();
-    if (existing) return res.json({ worldId: existing });
+    if (existing && req.body?.ready !== true) return res.json({ worldId: existing });
   } catch (error) {
     if (error.code !== "ENOENT") {
       return res.status(500).json({ error: "Could not read the saved world" });

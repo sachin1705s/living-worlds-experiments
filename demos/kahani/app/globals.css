@@ -2065,3 +2065,5 @@ body {
   .kid-hears-bubble { min-height: 98px; padding: 12px 15px; }
   .kid-bubble-text { font-size: 20px; }
 }
+
+.kid-input-modes{display:flex;gap:10px;margin:16px 0}.kid-input-modes button{flex:1;padding:10px;border:1px solid #c9af70;border-radius:12px;background:#fffaf0;color:#365235;font:inherit;cursor:pointer}.kid-input-modes button[aria-pressed="true"]{background:#365235;color:#fffaf0}.kid-input-modes button:disabled{opacity:.5;cursor:default}

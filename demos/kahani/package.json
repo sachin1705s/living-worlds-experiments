@@ -15,7 +15,8 @@
     "test:ui": "node scripts/test-ui-regressions.mjs",
     "test:harness": "node scripts/test-regression-harness.mjs",
     "world:create": "node scripts/create-or-attach-world.js",
-    "world:recreate": "node scripts/create-or-attach-world.js --recreate"
+    "world:recreate": "node scripts/create-or-attach-world.js --recreate",
+    "test:input": "node scripts/test-decision-input.mjs"
   },
   "dependencies": {
     "@reactor-models/happy-oyster": "^1.0.1",
@@ -38,6 +39,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^5.0.4",
+    "react-test-renderer": "^19.2.3",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vite": "^7.1.3"

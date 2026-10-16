@@ -24,7 +24,7 @@ import {
 } from "@/src/world-audio.js";
 import { resolveCaptionState } from "@/src/caption-state.js";
 import { createNarrationGate } from "@/src/narration-gate.js";
-import { shouldMountStoryVideo } from "@/src/story-session.js";
+import { shouldMountStoryVideo, reusableWorldId } from "@/src/story-session.js";
 import { KidDecisionInput } from "./KidDecisionInput";
 import type { WorldSession } from "@/components/happy-oyster/use-world-session";
 import { useVideoSlot } from "@/components/happy-oyster/ho-client";
@@ -722,15 +722,16 @@ export function KidStoryShell({
   }, [view.kind]);
 
   useEffect(() => {
-    const id = session.client.worldState?.encrypted_world_id;
-    const phase = session.client.worldState?.phase;
-    if (!id || phase === "failed" || phase === "no_world" || persistedWorldId.current === id) return;
+    const id = reusableWorldId(session.client.worldState);
+    if (!id || persistedWorldId.current === id) return;
     persistedWorldId.current = id;
     setSavedWorldId(id);
     void fetch("/api/world-id", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ worldId: id }),
+      body: JSON.stringify({ worldId: id, ready: true }),
+    }).then((response) => {
+      if (!response.ok) throw new Error(`World save failed (${response.status})`);
     }).catch((error) => {
       console.error("[kahani] Could not keep the built world", error);
       persistedWorldId.current = null;
@@ -1623,6 +1624,12 @@ function BuildingStory({
   session: WorldSession;
   openingStream?: boolean;
 }) {
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    const started = Date.now();
+    const timer = window.setInterval(() => setElapsed(Math.floor((Date.now() - started) / 1000)), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
   const active = session.journey.find((step) => step.status === "active");
   const current = openingStream
     ? "Turning the page"
@@ -1637,12 +1644,16 @@ function BuildingStory({
         <p className="kid-eyebrow">A new fable is taking shape</p>
         <h1>Opening the story…</h1>
         <p className="kid-loading-copy">
-          The characters are waiting for the first thing you want to change.
+          {active?.key === "generate"
+            ? "The forest is being built. Once it is ready, we’ll save it so future stories can open faster."
+            : "Opening your forest and bringing the characters to life."}
         </p>
         <div className="kid-progress-story" aria-label={current}>
           <span className="kid-progress-leaf" aria-hidden="true">❧</span>
-          <span>{current}</span>
+          <span>{current}{elapsed >= 10 ? ` · ${elapsed}s` : ""}</span>
         </div>
+        {elapsed >= 30 && <p role="status">The story service is taking longer than usual. You can leave and try again later.</p>}
+        <button type="button" onClick={session.exit}>Back to stories</button>
         <div className="kid-journey" aria-label="Story progress">
           {session.journey.map((step) => (
             <span

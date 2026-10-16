@@ -18,7 +18,7 @@ import {
   type AppView,
   type JourneyStep,
 } from "@/lib/view";
-import { readFailureCode } from "@/src/story-session.js";
+import { readFailureCode, worldBuildTimeRemaining } from "@/src/story-session.js";
 import { useHappyOysterClient, type HappyOysterClient } from "./ho-client";
 
 const WORLD_ACTION_TIMEOUT_MS = 180_000;
@@ -209,9 +209,10 @@ export function useWorldSession({
         intentKey,
       });
       setError(timeoutError.message);
-    }, WORLD_ACTION_TIMEOUT_MS);
+      void disconnect().catch(() => {});
+    }, worldBuildTimeRemaining(worldActionStartedAt, Date.now(), WORLD_ACTION_TIMEOUT_MS));
     return () => window.clearTimeout(timer);
-  }, [error, intentKey, phase, worldActionStartedAt, worldState?.phase]);
+  }, [disconnect, error, intentKey, phase, worldActionStartedAt, worldState?.phase]);
 
   useEffect(() => {
     if (worldState?.phase !== "failed") return;

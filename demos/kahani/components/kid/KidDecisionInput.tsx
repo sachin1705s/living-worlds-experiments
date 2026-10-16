@@ -67,6 +67,9 @@ export function KidDecisionInput({
   onSubmit,
 }: KidDecisionInputProps) {
   const [draft, setDraft] = useState("");
+  const [inputMode, setInputMode] = useState<"type" | "speak">("type");
+  const inputModeRef = useRef(inputMode);
+  inputModeRef.current = inputMode;
   const [listening, setListening] = useState(false);
   const [micMessage, setMicMessage] = useState("");
   const [finalTranscript, setFinalTranscript] = useState("");
@@ -129,7 +132,9 @@ export function KidDecisionInput({
         return;
       }
 
+      turnAvailableRef.current = false;
       clearAutoSubmit();
+      if (silenceTimerRef.current !== null) window.clearTimeout(silenceTimerRef.current);
       listeningRequestedRef.current = false;
       restartAfterEndRef.current = false;
       stopRecognition();
@@ -179,6 +184,7 @@ export function KidDecisionInput({
     const recognition = recognitionRef.current;
     if (
       !recognition ||
+      inputModeRef.current !== "speak" ||
       !listeningRequestedRef.current ||
       !turnAvailableRef.current ||
       confirmingRef.current
@@ -223,6 +229,7 @@ export function KidDecisionInput({
     recognition.interimResults = true;
     recognition.lang = "en-US";
     recognition.onstart = () => {
+      if (inputModeRef.current !== "speak" || !listeningRequestedRef.current) { stopRecognition(); return; }
       recognitionActiveRef.current = true;
       recognitionStartPendingRef.current = false;
       setListening(true);
@@ -231,7 +238,7 @@ export function KidDecisionInput({
     recognition.onresult = (event) => {
       // Results can arrive just after narration starts stopping the browser
       // session. Never let those late words leak into a bridge/consequence.
-      if (!turnAvailableRef.current) return;
+      if (!turnAvailableRef.current || inputModeRef.current !== "speak" || !listeningRequestedRef.current) return;
       let interim = "";
       let finalText = finalTranscriptRef.current;
       let receivedFinal = false;
@@ -259,6 +266,7 @@ export function KidDecisionInput({
       }
     };
     recognition.onerror = (event) => {
+      if (inputModeRef.current !== "speak") return;
       const code = event?.error ?? "unknown";
       const hardError = [
         "audio-capture",
@@ -289,6 +297,7 @@ export function KidDecisionInput({
       recognitionActiveRef.current = false;
       recognitionStartPendingRef.current = false;
       setListening(false);
+      if (inputModeRef.current !== "speak" || !turnAvailableRef.current) return;
       if (finalResultHandledRef.current && autoSubmitTimerRef.current !== null) {
         return;
       }
@@ -388,7 +397,7 @@ export function KidDecisionInput({
   }, [clearAutoSubmit, startListening]);
 
   useEffect(() => {
-    if (!turnAvailable || confirming) {
+    if (inputMode !== "speak" || !turnAvailable || confirming) {
       listeningRequestedRef.current = false;
       restartAfterEndRef.current = false;
       stopRecognition();
@@ -408,6 +417,7 @@ export function KidDecisionInput({
     clearAutoSubmit,
     confirming,
     micSupported,
+    inputMode,
     stopRecognition,
     turnAvailable,
   ]);
@@ -417,7 +427,7 @@ export function KidDecisionInput({
       window.clearTimeout(silenceTimerRef.current);
       silenceTimerRef.current = null;
     }
-    if (!turnAvailable || confirming || !onSilence) return;
+    if (inputMode !== "speak" || !turnAvailable || confirming || !onSilence) return;
 
     silenceTimerRef.current = window.setTimeout(() => {
       silenceTimerRef.current = null;
@@ -434,7 +444,7 @@ export function KidDecisionInput({
         silenceTimerRef.current = null;
       }
     };
-  }, [confirming, draft, onSilence, stopRecognition, turnAvailable]);
+  }, [confirming, draft, inputMode, onSilence, stopRecognition, turnAvailable]);
 
   useEffect(
     () => () => {
@@ -445,6 +455,24 @@ export function KidDecisionInput({
     },
     [clearAutoSubmit],
   );
+
+  const chooseInputMode = (mode: "type" | "speak") => {
+    inputModeRef.current = mode;
+    setInputMode(mode);
+    clearAutoSubmit();
+    if (silenceTimerRef.current !== null) window.clearTimeout(silenceTimerRef.current);
+    listeningRequestedRef.current = false;
+    restartAfterEndRef.current = false;
+    stopRecognition();
+    setListening(false);
+    setFinalTranscript("");
+    transcriptRef.current = "";
+    finalTranscriptRef.current = "";
+    finalResultHandledRef.current = false;
+    confirmationRef.current = "";
+    confirmationTouchedRef.current = true;
+    setMicMessage("");
+  };
 
   return (
     <section
@@ -473,7 +501,7 @@ export function KidDecisionInput({
               ? "The story is listening to your idea…"
               : waitingForStory
               ? "Listen closely for the moment he asks you."
-              : "Speak the next page into being."}
+              : "Write or speak what should happen next."}
           </small>
         </span>
       </div>
@@ -494,7 +522,11 @@ export function KidDecisionInput({
         </span>
       </div>
 
-      <div className="kid-voice-row">
+      <div className="kid-input-modes" role="group" aria-label="How to share your decision">
+        <button type="button" aria-pressed={inputMode === "type"} disabled={waitingForStory} onClick={() => chooseInputMode("type")}>Type a decision</button>
+        <button type="button" aria-pressed={inputMode === "speak"} disabled={waitingForStory || !micSupported} onClick={() => { onFirstGesture?.(); chooseInputMode("speak"); }}>Speak a decision</button>
+      </div>
+      {inputMode === "speak" && <div className="kid-voice-row">
         <button
           type="button"
           className={`kid-mic ${
@@ -576,9 +608,9 @@ export function KidDecisionInput({
             <span className="kid-confirmation-note">The story is listening…</span>
           )}
         </div>
-      </div>
+      </div>}
 
-      {needsReprompt && turnAvailable && !confirming && (
+      {inputMode === "speak" && needsReprompt && turnAvailable && !confirming && (
         <button type="button" className="kid-repeat-button" onClick={sayAgain}>
           Say it again <span aria-hidden="true">↻</span>
         </button>
@@ -589,18 +621,20 @@ export function KidDecisionInput({
           <input
             value={draft}
             disabled={!turnAvailable}
+            onFocus={() => { if (inputModeRef.current !== "type") chooseInputMode("type"); }}
             onChange={(event) => {
+              if (inputModeRef.current !== "type") chooseInputMode("type");
               setDraft(event.target.value);
               setMicMessage("");
             }}
             onKeyDown={(event) => {
-              if (event.key === "Enter") {
+              if (event.key === "Enter" && !event.nativeEvent.isComposing) {
                 event.preventDefault();
                 onFirstGesture?.();
                 submitText(draft);
               }
             }}
-            placeholder="Or type your idea here"
+            placeholder="Tell the rabbit what to do…"
             aria-label="Type what the rabbit should do"
           />
           <button
@@ -624,7 +658,9 @@ export function KidDecisionInput({
               ? "Listen for your turn…"
               : needsReprompt
                 ? "The rabbit tilted his ears. Try one more time."
-                : listening
+                : inputMode === "type"
+                  ? "Write your decision, then press Send or Enter. No microphone needed."
+                  : listening
                   ? "Keep talking — the rabbit is listening."
                   : "The rabbit is listening automatically — tap the mic to pause.")}
       </p>
