@@ -1,9 +1,11 @@
+import { connectPooled } from "./pooled-session.js";
+import { isSessionCapacityError } from "../../shared/reactor-capacity.js";
 import "./dance.css";
 import "./experiment-shell.css";
 if (window.parent !== window) document.documentElement.classList.add("framed");
 import { ViduS2EditingModel, MODEL_NAME } from "@reactor-models/vidu-s2-editing/core";
 import { attachVideoTrack, waitUntilReady } from "./reactor-media.js";
-import { stopReactor, trackSession } from "./vidu-session.js";
+import { stopReactor } from "./vidu-session.js";
 import { setupDanceMedia } from "./dance-media.js";
 
 const element = (id) => document.getElementById(id);
@@ -116,13 +118,9 @@ async function start() {
   element("camera").srcObject = stream;
   await element("camera").play().catch(() => {});
   status("Camera on. Connecting…");
-  const response = await fetch("/api/token", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ apiKey: sessionKey, model: MODEL_NAME }), signal });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error || "Could not get a Reactor token.");
   check();
   const session = new ViduS2EditingModel();
   model = session;
-  trackSession(session, data.jwt);
   session.onMainVideo((track) => {
     if (attempt !== version) return;
     attachVideoTrack(element("output"), track);
@@ -147,12 +145,13 @@ async function start() {
     }
   });
   session.on("error", (error) => {
+    if (!session.getSessionId() && isSessionCapacityError(error)) return;
     if (attempt !== version) return;
     status(error.message || "Reactor connection error", "error");
     void stop().catch((failure) => status(failure.message));
   });
   timer = setTimeout(() => { void stop().catch((error) => status(error.message)); }, 5 * 60 * 1000);
-  await session.connect(data.jwt);
+  await connectPooled(session, MODEL_NAME, signal, () => attempt === version);
   check();
   await waitUntilReady(session, signal);
   check();

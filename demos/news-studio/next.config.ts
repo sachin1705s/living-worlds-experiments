@@ -1,8 +1,10 @@
 import type { NextConfig } from "next";
+import path from "node:path";
 
 const nextConfig: NextConfig = {
-  // The repo root is this folder, not the parent home directory.
-  turbopack: { root: __dirname },
+  // Include the common session policy shared with the other experiments.
+  turbopack: { root: path.resolve(__dirname, "../..") },
+  outputFileTracingRoot: path.resolve(__dirname, "../.."),
   /* config options here */
 };
 

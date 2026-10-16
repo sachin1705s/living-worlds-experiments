@@ -1,5 +1,6 @@
+import { connectWithPair } from "../../../shared/reactor-capacity.js";
+import { stopReactor, trackConnect, trackSession } from "../vidu-session.js";
 import { PcmPlayer } from "./pcm-player.js";
-import { trackSession } from "../vidu-session.js";
 import "./style.css";
 import "../experiment-shell.css";
 if (window.parent !== window) document.documentElement.classList.add("framed");
@@ -71,11 +72,11 @@ async function stopSession() {
     speechUrl = null;
     const current = service;
     const currentId = sessionId || current?.getSessionId();
+    if (current) await stopReactor(current);
     service = null;
-    if (current) await current.disconnect();
     video.srcObject?.getTracks().forEach((track) => track.stop());
     video.srcObject = null;
-    if (currentId) {
+    if (!current && currentId) {
       const response = await fetch("/api/reactor/session/end", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -124,25 +125,33 @@ document.getElementById("connect-form").addEventListener("submit", async (event)
   historyEl.replaceChildren();
   status.textContent = "Connecting to Einstein…";
   try {
-    const response = await api("/api/token", { jwt: reactorKey, model: "reactor/visko-orbis-stable" });
-    const { jwt } = await response.json();
-    reactorKey = jwt;
-    if (attempt !== version) return;
-    const current = new ReactorStreamService(jwt, "reactor/visko-orbis-stable");
-    service = current;
-    trackSession(current, jwt);
-    await current.connect({
-      onConnected: (stream) => {
-        if (attempt === version) void attachStream(video, stream);
+    let current;
+    await connectWithPair({
+      signal: request.signal, active: () => attempt === version,
+      token: async (keySlot) => {
+        const response = await api("/api/token", { model: "reactor/visko-orbis-stable", keySlot });
+        return response.json();
       },
-      onSessionCreated: (id) => { if (attempt === version) sessionId = id; },
-      onStatusChange: (state) => { if (attempt === version) status.textContent = `Einstein: ${state}`; },
-      onStreamError: (_reason, message) => { if (attempt === version) status.textContent = message || "The stream reported an error. Stop and reconnect."; },
-      onStreamEnded: () => {
-        if (attempt !== version) return;
-        ready = false;
-        updateControls();
-        status.textContent = "Generation ended. Stop and reconnect for another session.";
+      cleanup: async () => { if (current) await stopReactor(current); },
+      connect: async ({ jwt }) => {
+        reactorKey = jwt;
+        current = new ReactorStreamService(jwt, "reactor/visko-orbis-stable");
+        service = current;
+        trackSession(current, jwt);
+        await trackConnect(current, current.connect({
+          onConnected: (stream) => {
+            if (attempt === version) void attachStream(video, stream);
+          },
+          onSessionCreated: (id) => { if (attempt === version) sessionId = id; },
+          onStatusChange: (state) => { if (attempt === version) status.textContent = `Einstein: ${state}`; },
+          onStreamError: (_reason, message) => { if (attempt === version) status.textContent = message || "The stream reported an error. Stop and reconnect."; },
+          onStreamEnded: () => {
+            if (attempt !== version) return;
+            ready = false;
+            updateControls();
+            status.textContent = "Generation ended. Stop and reconnect for another session.";
+          },
+        }));
       },
     });
     if (attempt !== version) return;

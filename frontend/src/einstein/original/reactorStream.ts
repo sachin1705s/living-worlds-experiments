@@ -260,7 +260,7 @@ export class ReactorStreamService {
     if (this.endAckTimer) { clearTimeout(this.endAckTimer); this.endAckTimer = null; }
     this.streaming = false;
     this.disposed = true;
-    await this.reactor.disconnect().catch(() => undefined);
+    await this.reactor.disconnect(false);
   }
 
   // ── internals ──────────────────────────────────────────────────────────────

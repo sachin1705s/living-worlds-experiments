@@ -18,19 +18,27 @@ function stopFrame(frame) {
   if (stopping) return stopping;
   if (!frame?.contentWindow) return Promise.resolve();
   const frameOrigin = new URL(frame.src, location.href).origin;
-  stopping = new Promise((resolve) => {
+  stopping = new Promise((resolve, reject) => {
     const requestId = crypto.randomUUID();
     const finish = () => {
       clearTimeout(timer);
+
       window.removeEventListener("message", receive);
       resolve();
     };
-    // Leave even if the demo never confirms. A missed ack used to keep the
-    // dialog open, so Back looked like it did nothing.
-    const timer = setTimeout(finish, 1500);
+    // A timeout leaves the frame intact so termination can finish or be retried.
+    const timer = setTimeout(() => {
+      window.removeEventListener("message", receive);
+      reject(new Error("Session cleanup is taking longer than expected"));
+    }, 45000);
+
     function receive(event) {
       if (event.origin !== frameOrigin || event.source !== frame.contentWindow || event.data?.requestId !== requestId) return;
-      finish();
+      if (event.data.error) {
+        clearTimeout(timer);
+        window.removeEventListener("message", receive);
+        reject(new Error(event.data.error));
+      } else finish();
     }
     window.addEventListener("message", receive);
     frame.contentWindow.postMessage({ type: "showcase-stop", requestId }, frameOrigin);
@@ -38,14 +46,25 @@ function stopFrame(frame) {
   return stopping;
 }
 
-function closeDemo({ fromHistory = false } = {}) {
+async function closeDemo({ fromHistory = false } = {}) {
+  if (stopping) return;
   const frame = content.querySelector("iframe");
-  dialog.close();
-  if (!fromHistory && history.state?.showcaseDemo) history.back();
-  void stopFrame(frame).finally(() => {
+  const button = document.getElementById("close-demo");
+  const label = button.textContent;
+  button.disabled = true;
+  button.textContent = "Ending session…";
+  try {
+    await stopFrame(frame);
+    dialog.close();
     frame?.remove();
-    if (!dialog.open) content.replaceChildren();
-  });
+    content.replaceChildren();
+    if (!fromHistory && history.state?.showcaseDemo) history.back();
+  } catch (error) {
+    alert(`Could not confirm the session ended: ${error.message}. Please press Back again.`);
+  } finally {
+    button.disabled = false;
+    button.textContent = label;
+  }
 }
 document.getElementById("close-demo").addEventListener("click", () => { void closeDemo(); });
 dialog.addEventListener("cancel", (event) => { event.preventDefault(); void closeDemo(); });

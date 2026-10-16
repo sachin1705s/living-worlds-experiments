@@ -76,14 +76,12 @@ function Shell({
       if (event.source !== window.parent || event.data?.type !== "showcase-stop") return;
       if (!allowed.has(event.origin) && !isLocalShowcase(event.origin)) return;
       try {
-        await Promise.race([
-          session.client.disconnect(),
-          new Promise((resolve) => window.setTimeout(resolve, 1200)),
-        ]);
-      } catch {
-        // The showcase still needs the ack so Back can return to the grid.
+        onClearIntent();
+        await session.client.disconnect();
+      } catch (error) {
+        event.source.postMessage({ requestId: event.data.requestId, error: error instanceof Error ? error.message : "Session termination failed" }, event.origin);
+        return;
       }
-      onClearIntent();
       event.source.postMessage({ requestId: event.data.requestId }, event.origin);
     }
     window.addEventListener("message", receive);

@@ -1,5 +1,11 @@
 const sessionTokens = new WeakMap();
 const trackedSessions = new Set();
+const connecting = new WeakMap();
+const knownIds = new WeakMap();
+export async function trackConnect(session, task) {
+  connecting.set(session, task);
+  try { return await task; } finally { if (connecting.get(session) === task) connecting.delete(session); }
+}
 
 export function trackSession(session, jwt) {
   sessionTokens.set(session, jwt);
@@ -8,7 +14,7 @@ export function trackSession(session, jwt) {
 
 window.addEventListener("pagehide", () => {
   for (const session of trackedSessions) {
-    const sessionId = session.getSessionId();
+    const sessionId = session.getSessionId() || knownIds.get(session);
     if (!sessionId) continue;
     const body = JSON.stringify({ sessionId, jwt: sessionTokens.get(session) });
     if (!navigator.sendBeacon("/api/reactor/session/end", new Blob([body], { type: "application/json" }))) {
@@ -19,6 +25,9 @@ window.addEventListener("pagehide", () => {
 
 export async function stopReactor(session, apiKey, sessionId = session?.getSessionId()) {
   if (!session) return;
+  await connecting.get(session)?.catch(() => {});
+  sessionId ||= session.getSessionId() || knownIds.get(session);
+  if (sessionId) knownIds.set(session, sessionId);
   const disconnect = session.disconnect(false).then(() => null, (error) => error);
   if (sessionId) {
     let response;
@@ -38,6 +47,7 @@ export async function stopReactor(session, apiKey, sessionId = session?.getSessi
     if (error) throw error;
   }
   trackedSessions.delete(session);
+  knownIds.delete(session);
 }
 
 export function installStopBridge(stop) {

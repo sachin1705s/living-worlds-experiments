@@ -1,3 +1,4 @@
+import { keyFor } from "../../../../../../shared/reactor-pool.js";
 import { NextResponse } from "next/server";
 import { openSessions } from "@/lib/reactor-sessions";
 import { readJson } from "@/lib/store";
@@ -33,7 +34,7 @@ const MAX_SESSION_SECONDS = Number(process.env.REACTOR_MAX_SESSION_SECONDS ?? 30
  * able to start a second GPU session on the account.
  */
 export async function POST(request: Request) {
-  const apiKey = process.env.REACTOR_API_KEY;
+  let apiKey = keyFor("news");
   if (!apiKey) {
     return NextResponse.json(
       { error: "REACTOR_API_KEY is not set. Add it to .env.local and restart." },
@@ -44,12 +45,15 @@ export async function POST(request: Request) {
   let sessionId: string | undefined;
   let originId = "";
   try {
-    const body = (await request.json()) as { sessionId?: unknown; originId?: unknown };
+    const body = (await request.json()) as { sessionId?: unknown; originId?: unknown; keySlot?: number };
     if (typeof body?.sessionId === "string" && body.sessionId) sessionId = body.sessionId;
+    apiKey = keyFor("news", body.keySlot ?? 0);
     if (typeof body?.originId === "string") originId = body.originId;
   } catch {
     // No body is the origin case.
   }
+
+  if (!apiKey) return NextResponse.json({ error: "News key is not configured" }, { status: 503 });
 
   // The off switch, checked before anything else. No origin token means no
   // browser can start a broadcast, which is what "off" has to mean when every

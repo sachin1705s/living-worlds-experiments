@@ -1,3 +1,4 @@
+import { keyFor } from "../../shared/reactor-pool.js";
 import express from "express";
 import { readPlaythrough, signPlaythrough } from "./src/playthrough-token.js";
 import dotenv from "dotenv";
@@ -33,7 +34,6 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(here, ".env") });
 
 export const DIRECTING_MODEL = "reactor/happy-oyster-director";
-const TOKEN_REFRESH_MARGIN_MS = 5 * 60 * 1000;
 const TOKEN_LIFETIME_SECONDS = 60 * 60;
 const TOKEN_SPAM_WINDOW_MS = 5_000;
 const TOKEN_SPAM_THRESHOLD = 5;
@@ -42,8 +42,6 @@ const coordinatorUrl =
   process.env.NEXT_PUBLIC_COORDINATOR_URL ||
   "https://api.reactor.inc";
 
-let cachedToken = { jwt: null, expiresAtMs: 0, issuedAtMs: 0 };
-let refreshPromise = null;
 const tokenRequestWindows = new Map();
 const narrationCache = new Map();
 const narrationInflight = new Map();
@@ -52,68 +50,25 @@ const DIRECTOR_MODEL = process.env.GEMINI_DIRECTOR_MODEL || "gemini-2.5-flash";
 const TTS_MODEL = process.env.GEMINI_TTS_MODEL || "gemini-2.5-flash-preview-tts";
 const TTS_VOICE = process.env.GEMINI_TTS_VOICE || NARRATOR_VOICE;
 
-// Reactor binds a scoped JWT to the sessions it creates. A cached token is
-// therefore part of connection correctness, not merely an optimization:
-// minting a new token for another SDK request can make the existing session's
-// ICE request fail with 403.
-export async function getSessionToken({ fresh = false } = {}) {
-  if (fresh) cachedToken = { jwt: null, expiresAtMs: 0, issuedAtMs: 0 };
-  if (
-    cachedToken.jwt &&
-    Date.now() < cachedToken.expiresAtMs - TOKEN_REFRESH_MARGIN_MS
-  ) {
-    return cachedToken;
+// Mint once per new connection. The browser retains the token for its whole session.
+export async function getSessionToken({ keySlot = 0 } = {}) {
+  const apiKey = keyFor("kahani", keySlot);
+  if (!apiKey) throw Object.assign(new Error("Kahani key is not configured"), { status: 503 });
+  const response = await fetch(`${coordinatorUrl}/tokens`, {
+    method: "POST",
+    headers: { "Reactor-API-Key": apiKey, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      expires_after: TOKEN_LIFETIME_SECONDS,
+      authorization_details: [{ type: "session", resources: { models: { match: [DIRECTING_MODEL] } },
+        constraints: { max_sessions: 1, max_session_duration_seconds: 300 } }],
+    }),
+    signal: AbortSignal.timeout(15000),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data.jwt) {
+    throw Object.assign(new Error(response.status === 429 ? "Session limit reached (429)" : String(data.message || data.error || "Token exchange failed")), { status: response.status });
   }
-
-  // Coalesce simultaneous first requests so they cannot mint two scoped
-  // tokens before the first response has reached the in-memory cache.
-  if (refreshPromise) return refreshPromise;
-
-  refreshPromise = (async () => {
-    const response = await fetch(`${coordinatorUrl}/tokens`, {
-      method: "POST",
-      headers: {
-        "Reactor-API-Key": process.env.REACTOR_API_KEY,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        expires_after: TOKEN_LIFETIME_SECONDS,
-        authorization_details: [
-          {
-            type: "session",
-            resources: { models: { match: [DIRECTING_MODEL] } },
-            // Counts every session this token ever opens, not how many are
-            // open at once. One cached token has to survive refreshes.
-            constraints: {
-              max_sessions: 20,
-              max_session_duration_seconds: 300,
-            },
-          },
-        ],
-      }),
-    });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok || !data.jwt) {
-      throw Object.assign(
-        new Error(data.error || `Token exchange failed (${response.status})`),
-        { status: response.status },
-      );
-    }
-
-    cachedToken = {
-      jwt: data.jwt,
-      expiresAtMs:
-        Number(data.expires_at ?? Math.floor(Date.now() / 1000) + 3600) * 1000,
-      issuedAtMs: Date.now(),
-    };
-    return cachedToken;
-  })();
-
-  try {
-    return await refreshPromise;
-  } finally {
-    refreshPromise = null;
-  }
+  return { jwt: data.jwt, expiresAtMs: Number(data.expires_at ?? Date.now() / 1000 + 3600) * 1000, issuedAtMs: Date.now() };
 }
 
 export const app = express();
@@ -658,30 +613,36 @@ function pcmToWav(pcm, sampleRate) {
 app.post("/api/token", async (req, res) => {
   const startedAt = Date.now();
   observeTokenRequest(req);
-  const cacheHit = Boolean(
-    cachedToken.jwt &&
-      Date.now() < cachedToken.expiresAtMs - TOKEN_REFRESH_MARGIN_MS,
-  );
-  if (!process.env.REACTOR_API_KEY) {
+  if (!keyFor("kahani", req.body?.keySlot ?? 0)) {
     logTokenCall(req, startedAt, "error");
     return res.status(503).json({ error: "REACTOR_API_KEY is not configured" });
   }
 
   try {
-    const fresh = req.body?.fresh === true;
-    const { jwt, expiresAtMs } = await getSessionToken({ fresh });
-    const token = { jwt, expiresAtMs, issuedAtMs: cachedToken.issuedAtMs };
-    logTokenCall(req, startedAt, cacheHit ? "cache_hit" : "mint", token);
+    const { jwt, expiresAtMs, issuedAtMs } = await getSessionToken({ keySlot: req.body?.keySlot ?? 0 });
+    const token = { jwt, expiresAtMs, issuedAtMs };
+    logTokenCall(req, startedAt, "mint", token);
     return res.json({
       jwt,
       expires_at: Math.floor(expiresAtMs / 1000),
     });
   } catch (error) {
-    logTokenCall(req, startedAt, "error", cachedToken);
+    logTokenCall(req, startedAt, "error");
     return res.status(error.status || 502).json({
       error: error.message || "Unable to reach the Reactor token service",
     });
   }
+});
+
+app.post("/api/reactor/session/end", async (req, res) => {
+  const { jwt, sessionId } = req.body ?? {};
+  if (typeof jwt !== "string" || typeof sessionId !== "string" || !sessionId) return res.sendStatus(400);
+  try {
+    const response = await fetch(`${coordinatorUrl}/sessions/${encodeURIComponent(sessionId)}`, {
+      method: "DELETE", headers: { Authorization: `Bearer ${jwt}` }, signal: AbortSignal.timeout(15000),
+    });
+    res.sendStatus(response.ok || response.status === 404 ? 200 : 502);
+  } catch { res.sendStatus(502); }
 });
 
 function narrationLineHash(line) {

@@ -1,4 +1,5 @@
-import { stopReactor, trackSession } from "./vidu-session.js";
+import { connectPooled } from "./pooled-session.js";
+import { stopReactor } from "./vidu-session.js";
 import { Reactor } from "@reactor-team/js-sdk";
 import { WORLDS } from "./worlds.js";
 import { attachVideoTrack, waitUntilReady } from "./reactor-media.js";
@@ -66,10 +67,7 @@ export async function initSession(videoElement, apiKey, modelName = "lingbot") {
   const session = reactor;
   const signal = tokenRequest.signal;
   try {
-    const token = await getToken(apiKey, signal, model.token);
-    if (version !== sessionVersion) throw new Error("Session stopped");
-    trackSession(session, token);
-    await session.connect(token);
+    await connectPooled(session, model.token, signal, () => version === sessionVersion);
     await waitUntilReady(session, signal);
     if (version !== sessionVersion) {
       await session.disconnect(false);
@@ -87,7 +85,6 @@ export async function disconnectSession() {
   tokenRequest?.abort();
   tokenRequest = null;
   const session = reactor;
-  reactor = null;
   seedRefs.clear();
   if (videoEl?.srcObject) {
     videoEl.srcObject.getTracks().forEach((track) => {
@@ -99,6 +96,7 @@ export async function disconnectSession() {
   if (videoEl) videoEl.onloadedmetadata = null;
   videoEl = null;
   if (session) await stopReactor(session);
+  if (reactor === session) reactor = null;
 }
 
 export async function preloadSeedImages() {

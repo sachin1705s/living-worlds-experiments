@@ -3,6 +3,8 @@ import cors from "cors";
 import "dotenv/config";
 import { einsteinRoutes } from "./einstein-routes.js";
 
+import { keyFor, MODEL_DEMOS } from "../shared/reactor-pool.js";
+
 const app = express();
 const PORT = process.env.PORT || 3001;
 
@@ -12,11 +14,11 @@ app.use(express.json());
 app.all("/api/token", async (req, res) => {
   if (!["GET", "POST"].includes(req.method)) return res.sendStatus(405);
   res.set("Cache-Control", "no-store");
-  const apiKey = process.env.REACTOR_API_KEY;
   const model = req.body?.model || "reactor/lingbot";
   if (!["reactor/lingbot", "reactor/helios", "reactor/visko-orbis-stable", "reactor/sana-streaming", "reactor/vidu-s2-editing", "reactor/vidu-s2-avatar"].includes(model)) {
     return res.status(400).json({ error: "Unsupported model" });
   }
+  const apiKey = keyFor(MODEL_DEMOS[model], req.body?.keySlot ?? 0);
   if (typeof apiKey !== "string" || !apiKey.trim()) {
     return res.status(500).json({ error: "REACTOR_API_KEY not set" });
   }
@@ -28,7 +30,9 @@ app.all("/api/token", async (req, res) => {
       signal: AbortSignal.timeout(15000),
     });
     if (!r.ok) {
-      return res.status(r.status).json({ error: "Reactor rejected the token request. Check your key and account access." });
+      const detail = await r.json().catch(() => ({}));
+      const capacity = r.status === 429 || /session.*limit|concurren/i.test(JSON.stringify(detail));
+      return res.status(r.status).json({ error: capacity ? "Session limit reached (429)" : "Reactor rejected the token request. Check your key and account access." });
     }
     const { jwt } = await r.json();
     res.json({ jwt });

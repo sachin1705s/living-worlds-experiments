@@ -1,10 +1,12 @@
+import { connectPooled } from "./pooled-session.js";
+import { isSessionCapacityError } from "../../shared/reactor-capacity.js";
 import "./dance.css";
 import "./roast.css";
 import "./experiment-shell.css";
 if (window.parent !== window) document.documentElement.classList.add("framed");
 import { ViduS2AvatarModel, MODEL_NAME } from "@reactor-models/vidu-s2-avatar/core";
 import { attachVideoTrack, waitUntilReady } from "./reactor-media.js";
-import { trackSession, stopReactor, installStopBridge } from "./vidu-session.js";
+import { stopReactor, installStopBridge } from "./vidu-session.js";
 import { chooseMaleVoice, prepareAvatar, rememberAvatar } from "./roast-setup.js";
 import { readPitchFile } from "./pitch-file.js";
 
@@ -74,13 +76,10 @@ async function start() {
     if (!response.ok) throw new Error("The Tech Roast portrait could not load.");
     return new File([await response.blob()], "tech-roast.png", { type: "image/png" });
   });
-  const [response, portrait] = await Promise.all([fetch("/api/token", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: MODEL_NAME }), signal }), portraitRequest]);
-  const token = await response.json();
-  if (!response.ok) throw new Error(token.error || "Unable to obtain a Reactor token.");
+  const portrait = await portraitRequest;
   check();
   const session = new ViduS2AvatarModel();
   model = session;
-  trackSession(session, token.jwt);
   session.onMainVideo((track) => {
     if (attempt !== version) return;
     const video = element("avatar");
@@ -110,6 +109,7 @@ async function start() {
     status(commandError, "error");
   });
   session.on("error", (error) => {
+    if (!session.getSessionId() && isSessionCapacityError(error)) return;
     if (attempt !== version) return;
     commandError = error.message || "Avatar connection failed.";
     status(commandError, "error");
@@ -125,7 +125,7 @@ async function start() {
     if (["failed", "ended"].includes(phase)) void stop().catch((error) => status(error.message));
   });
   timer = setTimeout(() => { void stop().catch((error) => status(error.message)); }, 5 * 60 * 1000);
-  await session.connect(token.jwt);
+  await connectPooled(session, MODEL_NAME, signal, () => attempt === version);
   check();
   await waitUntilReady(session, signal);
   check();

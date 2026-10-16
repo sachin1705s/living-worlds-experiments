@@ -1,5 +1,6 @@
 "use client";
-import { registerShowcaseStop } from "./ShowcaseBridge";
+import { connectWithPair } from "../../../shared/reactor-capacity.js";
+import { registerShowcaseStop, isShowcaseLeaving } from "./ShowcaseBridge";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { FileRef } from "@reactor-team/js-sdk";
@@ -94,8 +95,8 @@ interface DeckProps {
 const tokenCache = new Map<string, { jwt: string; expiresAt: number }>();
 const inFlight = new Map<string, Promise<string>>();
 
-async function fetchToken(adopt: string | null): Promise<string> {
-  const key = adopt ?? "origin";
+async function fetchToken(adopt: string | null, keySlot = 0): Promise<string> {
+  const key = adopt ?? `origin:${keySlot}`;
   const cached = tokenCache.get(key);
   if (cached && Date.now() < cached.expiresAt - 60_000) return cached.jwt;
 
@@ -117,7 +118,7 @@ async function fetchToken(adopt: string | null): Promise<string> {
       const res = await fetch("/api/reactor/token", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(adopt ? { sessionId: adopt } : { originId }),
+        body: JSON.stringify(adopt ? { sessionId: adopt } : { originId, keySlot }),
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body?.error ?? `Token request failed (${res.status})`);
@@ -143,7 +144,6 @@ async function fetchToken(adopt: string | null): Promise<string> {
  * rule is explicit — "the resolver must return a stable token for a session's
  * whole life" — and a string cannot be anything else.
  */
-const originToken = () => fetchToken(null);
 
 /**
  * Forget the origin token.
@@ -154,15 +154,52 @@ const originToken = () => fetchToken(null);
  * that will be refused.
  */
 export function releaseOriginToken(): void {
-  tokenCache.delete("origin");
+  tokenCache.delete("origin:0");
+  tokenCache.delete("origin:1");
 }
 
 export function Deck(props: DeckProps) {
   return (
-    <FastH3Provider jwtToken={originToken} connectOptions={{ autoConnect: true }}>
+    <FastH3Provider connectOptions={{ autoConnect: false }}>
+      <OriginConnection onError={props.onError} />
       <DeckInner {...props} />
     </FastH3Provider>
   );
+}
+
+// One connection attempt per mounted deck. A successful backup never probes primary.
+function OriginConnection({ onError }: { onError: (message: string) => void }) {
+  const { connect, disconnect } = useFastH3();
+  const latestError = useRef(onError);
+  latestError.current = onError;
+  useEffect(() => {
+    let cancelled = false;
+    let task: Promise<unknown> | null = null;
+    // Defer to let StrictMode's discarded effect clean up without opening a session.
+    const timer = setTimeout(() => {
+      task = connectWithPair({
+        active: () => !cancelled && !isShowcaseLeaving(),
+        token: (slot: number) => fetchToken(null, slot),
+        connect: (jwt: string) => connect(jwt),
+        cleanup: () => disconnect(false),
+      });
+      void task.catch((error) => { if (!cancelled) latestError.current(error.message); });
+    }, 0);
+    const unregister = registerShowcaseStop(async () => {
+      cancelled = true;
+      clearTimeout(timer);
+      await task?.catch(() => {});
+      await disconnect(false);
+      releaseOriginToken();
+    });
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+      unregister();
+      void task?.catch(() => {}).then(() => disconnect(false)).catch(() => {});
+    };
+  }, [connect, disconnect]);
+  return null;
 }
 
 /**
@@ -400,10 +437,8 @@ function DeckInner({
   onError,
   live,
 }: DeckProps) {
-  const { status, sessionId, disconnect, sendCommand, setCanvas, setAutoplay, setClipSeconds, setFlushOnClipEnd, setSeed, enqueue, uploadFile } =
+  const { status, sessionId, sendCommand, setCanvas, setAutoplay, setClipSeconds, setFlushOnClipEnd, setSeed, enqueue, uploadFile } =
     useFastH3();
-
-  useEffect(() => registerShowcaseStop(async () => { await disconnect(); }), [disconnect]);
 
   const [configured, setConfigured] = useState(false);
   /** Flips once so the configure effect re-runs when the first broadcast lands. */

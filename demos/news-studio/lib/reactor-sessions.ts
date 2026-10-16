@@ -31,17 +31,18 @@ interface SessionRow {
  * round trips where one would do — on the path a viewer waits through to see
  * the channel at all.
  */
-let accountId: string | null = null;
+const accountIds = new Map<string, string>();
 
 async function account(apiKey: string): Promise<string> {
-  if (accountId) return accountId;
+  const known = accountIds.get(apiKey);
+  if (known) return known;
   const me = await fetch("https://api.reactor.inc/me", {
     headers: { "Reactor-API-Key": apiKey },
     signal: AbortSignal.timeout(8_000),
   });
   if (!me.ok) throw new Error(`Account lookup ${me.status}`);
   const { account_id } = (await me.json()) as { account_id: string };
-  accountId = account_id;
+  accountIds.set(apiKey, account_id);
   return account_id;
 }
 
@@ -50,11 +51,12 @@ async function account(apiKey: string): Promise<string> {
  * and the answer cannot meaningfully change between them, but the window is
  * short enough that a session appearing or closing is noticed quickly.
  */
-let cached: { at: number; sessions: OpenSession[] } | null = null;
+const cache = new Map<string, { at: number; sessions: OpenSession[] }>();
 const CACHE_MS = 4_000;
 
 /** Every session on the account that has not been closed, oldest first. */
 export async function openSessions(apiKey: string): Promise<OpenSession[]> {
+  const cached = cache.get(apiKey);
   if (cached && Date.now() - cached.at < CACHE_MS) return cached.sessions;
 
   const id = await account(apiKey);
@@ -70,13 +72,13 @@ export async function openSessions(apiKey: string): Promise<OpenSession[]> {
     .map((r) => ({ sessionId: r.session_id, createdAt: Date.parse(r.created_at) || 0 }))
     .sort((a, b) => a.createdAt - b.createdAt);
 
-  cached = { at: Date.now(), sessions };
+  cache.set(apiKey, { at: Date.now(), sessions });
   return sessions;
 }
 
 /** Called after a termination, so the next read does not serve a dead session. */
 export function forgetSessionCache(): void {
-  cached = null;
+  cache.clear();
 }
 
 /**

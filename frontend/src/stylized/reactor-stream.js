@@ -1,4 +1,5 @@
-import { stopReactor, trackSession } from "../vidu-session.js";
+import { connectPooled } from "../pooled-session.js";
+import { stopReactor } from "../vidu-session.js";
 // Reactor adapter for camera-input streaming models.
 //
 // These models take a live video track IN (the webcam) and stream an edited
@@ -18,27 +19,6 @@ import { stopReactor, trackSession } from "../vidu-session.js";
 
 import { Reactor } from "@reactor-team/js-sdk";
 import { waitUntilReady } from "../reactor-media.js";
-
-// Exchanges a Reactor API key for a short-lived JWT via the backend's token
-// broker. Normally that's the server-side REACTOR_API_KEY env var; if the
-// caller supplies their own key (see finger-frame.js's "use your own key"
-// field), it's sent as a header and the broker uses it for this exchange
-// instead — the raw key still never touches Reactor directly from the
-// browser, only our own same-origin endpoint.
-async function getToken(userApiKey, signal) {
-  const r = await fetch("/api/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ apiKey: userApiKey, model: "reactor/sana-streaming" }),
-    signal,
-  });
-  if (!r.ok) {
-    const txt = await r.text().catch(() => "");
-    throw new Error(`token fetch failed: ${r.status} ${txt}`);
-  }
-  const { jwt } = await r.json();
-  return jwt;
-}
 
 export const STREAM_MODELS = {
   "sana-streaming": {
@@ -120,10 +100,7 @@ export async function connectStream(modelId, track, initialPrompt = "", { timeou
     if (attempt !== generation) throw new Error("Session stopped");
   };
   try {
-    const token = await getToken(userApiKey, signal);
-    checkActive();
-    trackSession(session, token);
-    await session.connect(token);
+    await connectPooled(session, "reactor/sana-streaming", signal, () => attempt === generation);
     await waitUntilReady(session, signal, timeoutMs);
     checkActive();
     await session.publishTrack(config.sourceTrack, track);
@@ -155,11 +132,11 @@ export async function disconnectStream() {
   pendingRequest = null;
   if (!reactor) return;
   const r = reactor;
-  reactor = null;
   activeConfig = null;
   currentStatus = "disconnected";
   try {
     await stopReactor(r);
+    if (reactor === r) reactor = null;
   } catch (e) {
     console.warn("[reactor-stream] disconnect:", e?.message);
     throw e;

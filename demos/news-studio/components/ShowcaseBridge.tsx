@@ -3,6 +3,8 @@
 import { useEffect } from "react";
 
 const handlers = new Set<() => Promise<unknown>>();
+let leaving = false;
+export const isShowcaseLeaving = () => leaving || Boolean(stopping);
 let stopping: Promise<void> | null = null;
 
 export function stopShowcase() {
@@ -18,9 +20,10 @@ export function registerShowcaseStop(handler: () => Promise<unknown>) {
 export function ShowcaseBridge() {
   useEffect(() => {
     const receive = async (event: MessageEvent) => {
-      const allowed = [process.env.NEXT_PUBLIC_SHOWCASE_ORIGIN, "http://127.0.0.1:5180", "http://localhost:5180"].filter(Boolean);
+      const allowed = [process.env.NEXT_PUBLIC_SHOWCASE_ORIGIN, "https://worlds-experiments.vercel.app", "http://127.0.0.1:5180", "http://localhost:5180"].filter(Boolean);
       if (event.source !== window.parent || !allowed.includes(event.origin) || event.data?.type !== "showcase-stop") return;
       try {
+        leaving = true;
         await stopShowcase();
         window.parent.postMessage({ requestId: event.data.requestId }, event.origin);
       } catch (error) {

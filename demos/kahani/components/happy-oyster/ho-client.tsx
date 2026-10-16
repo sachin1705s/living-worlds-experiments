@@ -16,6 +16,8 @@ import {
   useContext,
   useMemo,
   useState,
+  useRef,
+  useEffect,
   type ReactNode,
 } from "react";
 import {
@@ -24,6 +26,7 @@ import {
   useHappyOyster,
   useHappyOysterTravelStatus,
 } from "@reactor-models/happy-oyster/react";
+import { connectWithPair } from "../../../../shared/reactor-capacity.js";
 import AliRtcEngine from "aliyun-rtc-sdk";
 import { setAliRtcRemoteAudioVolume } from "@/src/ali-rtc-audio.js";
 import type {
@@ -104,55 +107,14 @@ const providerOptions = LOCAL_RUNTIME
   ? { local: true, ...(COORDINATOR_URL ? { apiUrl: COORDINATOR_URL } : {}) }
   : { apiUrl: COORDINATOR_URL ?? "https://api.reactor.inc" };
 
-// JWT resolver: several provider surfaces can ask for a token during startup.
-// Keep the in-flight (and fulfilled) promise at module scope so StrictMode,
-// reconnects, and sibling components share one Coordinator request.
-let cachedTokenPromise: Promise<string> | null = null;
-let forceFreshToken = false;
-
-async function requestToken(fresh: boolean): Promise<string> {
+async function requestToken(keySlot: number): Promise<string> {
   const r = await fetch("/api/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(fresh ? { fresh: true } : {}),
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ keySlot }),
   });
-  if (!r.ok) {
-    const body = (await r.json().catch(() => ({}))) as { error?: string };
-    throw new Error(body.error ?? `Token fetch failed: ${r.status}`);
-  }
-  const { jwt } = (await r.json()) as { jwt: string };
-  return jwt;
-}
-
-function fetchToken(): Promise<string> {
-  if (!cachedTokenPromise) {
-    const fresh = forceFreshToken;
-    forceFreshToken = false;
-    cachedTokenPromise = requestToken(fresh).catch((cause) => {
-      // A rejected promise cannot be useful to a later connection attempt.
-      cachedTokenPromise = null;
-      throw cause;
-    });
-  }
-  return cachedTokenPromise;
-}
-
-function clearTokenAfterUnauthorized(cause: unknown): void {
-  const detail = cause as {
-    status?: unknown;
-    response?: { status?: unknown };
-  };
-  const message = cause instanceof Error ? cause.message : String(cause);
-  if (
-    detail?.status === 401 ||
-    detail?.status === 403 ||
-    detail?.response?.status === 401 ||
-    detail?.response?.status === 403 ||
-    /\b401\b|\b403\b|unauthorized|session limit/i.test(message)
-  ) {
-    cachedTokenPromise = null;
-    forceFreshToken = true;
-  }
+  const body = await r.json();
+  if (!r.ok) throw new Error(body.error ?? `Token fetch failed: ${r.status}`);
+  return body.jwt;
 }
 
 // The mode is fixed for the life of the session — it picks which Reactor model
@@ -193,14 +155,42 @@ function LiveClientBridge({ children }: { children: ReactNode }) {
     setAliRtcRemoteAudioVolume(AliRtcEngine.getInstance(), volume);
   }, []);
 
-  const connect = useCallback(() => {
+  const generation = useRef(0);
+  const pending = useRef<Promise<unknown> | null>(null);
+  const jwt = useRef("");
+  const connect = useCallback(async () => {
+    if (pending.current) { await pending.current; return; }
+    const run = generation.current;
     setLastError(null);
-    return ho.connect(LOCAL_RUNTIME ? undefined : fetchToken).catch((cause) => {
-      if (!LOCAL_RUNTIME) clearTokenAfterUnauthorized(cause);
-      setLastError(describeError(cause));
-      throw cause;
+    const task = LOCAL_RUNTIME ? ho.connect() : connectWithPair({
+      active: () => generation.current === run,
+      token: requestToken,
+      connect: async (token: string) => { jwt.current = token; await ho.connect(token); },
+      cleanup: () => ho.disconnect(),
     });
+    pending.current = task;
+    try { await task; }
+    catch (cause) { if (run === generation.current) setLastError(describeError(cause)); throw cause; }
+    finally { if (pending.current === task) pending.current = null; }
   }, [ho]);
+
+  const disconnect = useCallback(async () => {
+    generation.current += 1;
+    await pending.current?.catch(() => {});
+    await ho.disconnect();
+    jwt.current = "";
+  }, [ho]);
+
+  useEffect(() => {
+    const leave = () => {
+      generation.current += 1;
+      const sessionId = ho.model.getSessionId();
+      if (sessionId && jwt.current) navigator.sendBeacon("/api/reactor/session/end", new Blob([JSON.stringify({ sessionId, jwt: jwt.current })], { type: "application/json" }));
+      void disconnect().catch(() => {});
+    };
+    window.addEventListener("pagehide", leave);
+    return () => window.removeEventListener("pagehide", leave);
+  }, [ho.model, disconnect]);
 
   const client = useMemo<HappyOysterClient>(
     () => ({
@@ -216,7 +206,7 @@ function LiveClientBridge({ children }: { children: ReactNode }) {
       attachWorld: ho.attachWorld,
       startTravel: ho.startTravel,
       endTravelSession: ho.endTravelSession,
-      disconnect: ho.disconnect,
+      disconnect,
       hold: ho.hold,
       interact: ho.interact,
       release: ho.release,
@@ -224,7 +214,7 @@ function LiveClientBridge({ children }: { children: ReactNode }) {
       instruct: ho.instruct,
       setRemoteAudioVolume,
     }),
-    [ho, travelStatus, lastError, connect, setRemoteAudioVolume],
+    [ho, travelStatus, lastError, connect, disconnect, setRemoteAudioVolume],
   );
 
   const value = useMemo<ClientContextValue>(
