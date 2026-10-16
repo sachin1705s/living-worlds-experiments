@@ -1,4 +1,9 @@
-demos
+**/node_modules
+**/dist
+**/.next
+**/.world-id
+**/.data
+**/*.tsbuildinfo
 frontend/node_modules
 backend/node_modules
 frontend/dist
