@@ -158,11 +158,15 @@ app.post('/api/character/chat', aiLimiter, async (req, res) => {
 
     const generateParams = {
       model: characterModel,
-      generationConfig: { maxOutputTokens: enableSearch ? 400 : 160 },
+      config: {
+        maxOutputTokens: enableSearch ? 400 : 200,
+        ...(characterModel === 'gemini-2.5-flash' ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
+        ...(!enableSearch ? { responseMimeType: 'application/json' } : {}),
+      },
       contents: [{ role: 'user', parts: contentParts }],
     };
     if (enableSearch) {
-      generateParams.tools = [{ googleSearch: {} }];
+      generateParams.config.tools = [{ googleSearch: {} }];
     }
 
     // Retry on rate-limit (429 / resource exhausted). Capped at 1 retry total
@@ -305,6 +309,55 @@ app.post('/api/character/tts', async (req, res) => {
 
     // ── Gemini TTS path ───────────────────────────────────────────────────────
     const geminiVoice = String(req.body?.geminiVoice ?? '').trim();
+    if (geminiVoice && req.body?.stream === true) {
+      const ai = getAiClient();
+      if (!ai) return res.status(503).json({ error: 'Gemini not configured.' });
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 30000);
+      const cancel = () => { if (!res.writableEnded) controller.abort(); };
+      res.on('close', cancel);
+      try {
+        const chunks = await ai.models.generateContentStream({
+          model: process.env.EINSTEIN_TTS_MODEL || 'gemini-3.1-flash-tts-preview',
+          contents: rawText,
+          config: {
+            abortSignal: controller.signal,
+            responseModalities: ['AUDIO'],
+            speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: geminiVoice } } },
+          },
+        });
+        let hasAudio = false;
+        for await (const chunk of chunks) {
+          for (const part of chunk.candidates?.[0]?.content?.parts || []) {
+            if (!part.inlineData?.data) continue;
+            if (!hasAudio) {
+              const mime = part.inlineData.mimeType || '';
+              if (!/audio\/(L16|pcm)/i.test(mime)) throw new Error('Unexpected streaming audio format');
+              res.set({
+                'Content-Type': 'audio/pcm',
+                'X-Sample-Rate': mime.match(/rate=(\d+)/)?.[1] || '24000',
+                'X-Bit-Depth': '16',
+                'X-Channels': '1',
+                'X-Accel-Buffering': 'no',
+              });
+              hasAudio = true;
+            }
+            res.write(Buffer.from(part.inlineData.data, 'base64'));
+          }
+        }
+        if (!hasAudio) throw new Error('No speech audio returned');
+        return res.end();
+      } catch (error) {
+        if (!res.headersSent && !res.destroyed) {
+          return res.status(502).json({ error: 'Speech generation failed. Please try again.' });
+        }
+        res.destroy();
+        return;
+      } finally {
+        clearTimeout(timeout);
+        res.off('close', cancel);
+      }
+    }
     let geminiTtsFailed = false;
     if (geminiVoice) {
       const apiKey = runtimeConfig.geminiApiKey;

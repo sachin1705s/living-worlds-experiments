@@ -9,6 +9,7 @@
         <h2>Pick a topic</h2><div id="topics"></div>
         <form id="question-form"><label>Your question<textarea id="question" rows="3" maxlength="2000" placeholder="Why does time slow down in space?" required></textarea></label><button id="ask" disabled>Ask Einstein</button></form>
         <form id="direction-form"><label>Direct the scene<input id="direction" maxlength="1000" placeholder="Hold up a small glowing atom model" required /></label><button id="direct" disabled>Show it</button></form>
+        <p id="einstein-status" role="status" aria-live="polite"></p>
         <audio id="speech" controls hidden></audio><div id="history" role="log" aria-live="polite"></div>
       </aside>
     </main><script type="module" src="/src/einstein/main.js"></script>

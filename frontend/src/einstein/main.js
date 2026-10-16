@@ -1,3 +1,4 @@
+import { PcmPlayer } from "./pcm-player.js";
 import { trackSession } from "../vidu-session.js";
 import "./style.css";
 import "../experiment-shell.css";
@@ -6,7 +7,8 @@ import { ReactorStreamService, attachStream, loadImageFile } from "./original/re
 import { EXPLAIN_QUESTIONS, pcmToWav, glListProps, buildReactorInteractPrompt } from "./original/character";
 
 const video = document.getElementById("einstein-video");
-const status = { set textContent(_value) {} };
+const status = document.getElementById("einstein-status");
+const voice = new PcmPlayer();
 const connectButton = document.getElementById("connect");
 const speech = document.getElementById("speech");
 const historyEl = document.getElementById("history");
@@ -61,6 +63,7 @@ async function stopSession() {
     request.abort();
     clearTimeout(objectTimer);
     clearTimeout(sessionTimer);
+    voice.stop();
     speech.pause();
     speech.removeAttribute("src");
     speech.hidden = true;
@@ -102,6 +105,7 @@ window.addEventListener("message", async (event) => {
 });
 window.addEventListener("pagehide", () => {
   request.abort();
+  voice.stop();
   speech.pause();
   if (sessionId) {
     navigator.sendBeacon("/api/reactor/session/end", new Blob([JSON.stringify({ sessionId, jwt: reactorKey })], { type: "application/json" }));
@@ -150,9 +154,6 @@ document.getElementById("connect-form").addEventListener("submit", async (event)
     ready = true;
     updateControls();
     status.textContent = "Einstein is ready. Choose a topic or ask a question.";
-    speech.src = "/einstein/greeting.wav";
-    speech.hidden = false;
-    void speech.play().catch(() => {});
     sessionTimer = setTimeout(() => { void stopSession().catch((error) => { status.textContent = error.message; }); }, 5 * 60 * 1000);
   } catch (error) {
     if (attempt !== version) return;
@@ -162,8 +163,10 @@ document.getElementById("connect-form").addEventListener("submit", async (event)
 });
 
 async function playReply(text, attempt) {
-  const response = await api("/api/character/tts", { text, character: "Einstein's Chalkboard", geminiVoice: "Charon" });
-  const audio = await response.arrayBuffer();
+  const response = await api("/api/character/tts", { text, character: "Einstein's Chalkboard", geminiVoice: "Charon", stream: true });
+  if (attempt !== version) { await response.body.cancel(); return; }
+  const audio = await voice.play(response, request.signal);
+
   if (attempt !== version) return;
   const isPcm = response.headers.get("content-type")?.includes("audio/pcm");
   const wav = isPcm ? pcmToWav(audio, Number(response.headers.get("x-sample-rate") || 24000), Number(response.headers.get("x-channels") || 1), Number(response.headers.get("x-bit-depth") || 16)) : audio;
@@ -171,7 +174,7 @@ async function playReply(text, attempt) {
   speechUrl = URL.createObjectURL(new Blob([wav], { type: "audio/wav" }));
   speech.src = speechUrl;
   speech.hidden = false;
-  await speech.play().catch(() => { status.textContent = "Answer ready. Press play to hear Einstein."; });
+  status.textContent = voice.isPlaying ? "Einstein is explaining…" : "Answer ready. Press play to hear Einstein again.";
 }
 
 async function ask(question) {
@@ -179,7 +182,10 @@ async function ask(question) {
   const attempt = version;
   busy = true;
   updateControls();
+  voice.stop();
+  void voice.unlock().catch(() => { status.textContent = "Allow audio playback to hear Einstein."; });
   speech.pause();
+  speech.hidden = true;
   clearTimeout(objectTimer);
   status.textContent = "Einstein is thinking…";
   addLine("You", question);
@@ -203,7 +209,10 @@ async function ask(question) {
     const verb = action.replace(/^SCENE_ACTION_/i, "").toLowerCase().replace(/_/g, " ").trim();
     const actionClause = verb ? `He ${verb}. ` : "";
     const propsClause = objects.length ? `${glListProps(objects)} in his hands, clearly visible as a small prop.` : "";
-    await service.interact(buildReactorInteractPrompt(`${exitClause}${actionClause}${propsClause}`.trim()));
+    // Scene generation must never delay the spoken answer.
+    void service.interact(buildReactorInteractPrompt(`${exitClause}${actionClause}${propsClause}`.trim())).catch((error) => {
+      if (attempt === version) console.warn("Einstein scene update failed:", error.message);
+    });
     if (attempt !== version) return;
     visibleObjects = objects;
     status.textContent = "Einstein is explaining…";
@@ -211,18 +220,23 @@ async function ask(question) {
     if (attempt !== version) return;
     const clearProps = () => {
       if (attempt !== version || !service || !visibleObjects.length) return;
-      if (!speech.paused && !speech.ended) { objectTimer = setTimeout(clearProps, 500); return; }
+      if (voice.isPlaying || (!speech.paused && !speech.ended)) { objectTimer = setTimeout(clearProps, 500); return; }
       const props = glListProps(visibleObjects);
       visibleObjects = [];
       void service.interact(buildReactorInteractPrompt(`He puts ${props} away; his hands are empty and the scene is exactly as it was before.`)).catch(() => {});
     };
     objectTimer = setTimeout(clearProps, 8000);
   } catch (error) {
-    if (attempt === version) status.textContent = error.message;
+    if (attempt === version) {
+      voice.stop();
+      status.textContent = error.message;
+    }
   } finally {
     if (attempt === version) { busy = false; updateControls(); }
   }
 }
+
+speech.addEventListener("play", () => voice.stop());
 
 for (const topic of EXPLAIN_QUESTIONS) {
   const button = document.createElement("button");
