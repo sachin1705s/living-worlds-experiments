@@ -26,7 +26,7 @@ import {
   useHappyOyster,
   useHappyOysterTravelStatus,
 } from "@reactor-models/happy-oyster/react";
-import { connectWithPair } from "../../../../shared/reactor-capacity.js";
+import { connectWithPool } from "../../../../shared/reactor-capacity.js";
 import AliRtcEngine from "aliyun-rtc-sdk";
 import { setAliRtcRemoteAudioVolume } from "@/src/ali-rtc-audio.js";
 import type {
@@ -162,7 +162,7 @@ function LiveClientBridge({ children }: { children: ReactNode }) {
     if (pending.current) { await pending.current; return; }
     const run = generation.current;
     setLastError(null);
-    const task = LOCAL_RUNTIME ? ho.connect() : connectWithPair({
+    const task = LOCAL_RUNTIME ? ho.connect() : connectWithPool({
       active: () => generation.current === run,
       token: requestToken,
       connect: async (token: string) => { jwt.current = token; await ho.connect(token); },

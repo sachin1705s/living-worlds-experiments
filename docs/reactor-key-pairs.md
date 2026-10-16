@@ -1,6 +1,6 @@
-# Reactor key pairs
+# Reactor key pools
 
-Each experiment has a server-only JSON array containing its primary and backup API keys. The browser receives only a short-lived JWT scoped to that experiment's model. Drawing's two modes share one pair.
+Each experiment has a server-only JSON array containing its primary and two fallback API keys. The browser receives only a short-lived JWT scoped to that experiment's model. Drawing's two modes share one pool.
 
 | Experiment | Environment variable | Supplied key positions |
 | --- | --- | --- |
@@ -11,15 +11,15 @@ Each experiment has a server-only JSON array containing its primary and backup A
 | Check Your Drip | `REACTOR_DRIP_KEYS` | 9–10 |
 | News Studio | `REACTOR_NEWS_KEYS` | 11–12 |
 | Kahani | `REACTOR_KAHANI_KEYS` | 13–14 |
-| Unassigned reserves | `REACTOR_RESERVED_KEYS` | 15–16 |
+| Remaining reserve | `REACTOR_RESERVED_KEYS` | 16 |
 
 Store values in the ignored local `.env`, the relevant Vercel project's encrypted production variables, and GitHub Actions secrets. Never use a `VITE_` or `NEXT_PUBLIC_` prefix for a key. GitHub secrets are a separate copy: changing them does not automatically change Vercel variables.
 
-A new session tries the primary key once. A session-capacity rejection triggers cleanup and one attempt with the backup. It does not retry billing, authentication or network failures. Once connected, the token stays fixed until the session ends. There is no timer that probes the primary and no switch back while a backup session is active. Both keys being unavailable ends that startup attempt with an error.
+A new session tries the primary key once. A session-capacity rejection triggers cleanup and an attempt with the second key, then the third if the second also hits capacity. It does not retry billing, authentication or network failures. Once connected, the token stays fixed until the session ends. There is no timer that probes the primary and no switch back while a backup session is active. All three keys being unavailable ends that startup attempt with an error.
 
 Back cancels startup, waits for any in-flight session creation to settle and disconnects using the original session credentials. The showcase waits for the demo's acknowledgement before removing its iframe. A cleanup error retains the frame and offers another Back attempt. Unload beacons provide best-effort cleanup if the tab itself closes; provider-side five-minute session limits bound sessions abandoned by a browser/network crash.
 
-All 16 supplied keys were authenticated with `/me` and belong to the same account. Key rotation cannot increase an account-wide concurrency limit or create more provider GPU capacity.
+The original 16 keys belong to one account. The six additional unique keys authenticate successfully and belong to a different account from the original. Key rotation cannot increase an account-wide concurrency limit or create more provider GPU capacity.
 
 Validation:
 
@@ -29,3 +29,5 @@ npm --prefix frontend run build
 npm --prefix demos/kahani run build
 npm --prefix demos/news-studio run build
 ```
+
+The six distinct keys in the second supplied list are assigned as third keys to Drawing, Einstein, Tech Roast, Stylized Worlds, Check Your Drip and News Studio, respectively. Repeated pasted values are deduplicated. Kahani uses the first previously unassigned reserve (original key 15) as its third key; original key 16 remains reserved.

@@ -1,5 +1,5 @@
 "use client";
-import { connectWithPair } from "../../../shared/reactor-capacity.js";
+import { connectWithPool } from "../../../shared/reactor-capacity.js";
 import { registerShowcaseStop, isShowcaseLeaving } from "./ShowcaseBridge";
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -156,6 +156,7 @@ async function fetchToken(adopt: string | null, keySlot = 0): Promise<string> {
 export function releaseOriginToken(): void {
   tokenCache.delete("origin:0");
   tokenCache.delete("origin:1");
+  tokenCache.delete("origin:2");
 }
 
 export function Deck(props: DeckProps) {
@@ -177,7 +178,7 @@ function OriginConnection({ onError }: { onError: (message: string) => void }) {
     let task: Promise<unknown> | null = null;
     // Defer to let StrictMode's discarded effect clean up without opening a session.
     const timer = setTimeout(() => {
-      task = connectWithPair({
+      task = connectWithPool({
         active: () => !cancelled && !isShowcaseLeaving(),
         token: (slot: number) => fetchToken(null, slot),
         connect: (jwt: string) => connect(jwt),

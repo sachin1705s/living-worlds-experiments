@@ -1,3 +1,4 @@
+import { demoKeys } from "../../../shared/reactor-pool.js";
 /**
  * What Reactor says is running, which is the only account of it that cannot
  * drift.
@@ -16,6 +17,7 @@
 export interface OpenSession {
   sessionId: string;
   createdAt: number;
+  keySlot?: number;
 }
 
 interface SessionRow {
@@ -55,7 +57,7 @@ const cache = new Map<string, { at: number; sessions: OpenSession[] }>();
 const CACHE_MS = 4_000;
 
 /** Every session on the account that has not been closed, oldest first. */
-export async function openSessions(apiKey: string): Promise<OpenSession[]> {
+async function openSessionsForKey(apiKey: string): Promise<OpenSession[]> {
   const cached = cache.get(apiKey);
   if (cached && Date.now() - cached.at < CACHE_MS) return cached.sessions;
 
@@ -76,6 +78,17 @@ export async function openSessions(apiKey: string): Promise<OpenSession[]> {
   return sessions;
 }
 
+/** Discover broadcasts across every configured account, preserving their owning slot. */
+export async function openSessions(apiKey: string): Promise<OpenSession[]> {
+  const keys = demoKeys("news");
+  if (!keys.length) keys.push(apiKey);
+  const groups = await Promise.all(keys.map(async (key, keySlot) =>
+    (await openSessionsForKey(key)).map(session => ({ ...session, keySlot }))));
+  const unique = new Map<string, OpenSession>();
+  for (const session of groups.flat()) if (!unique.has(session.sessionId)) unique.set(session.sessionId, session);
+  return [...unique.values()].sort((a, b) => a.createdAt - b.createdAt);
+}
+
 /** Called after a termination, so the next read does not serve a dead session. */
 export function forgetSessionCache(): void {
   cache.clear();
@@ -90,9 +103,14 @@ export function forgetSessionCache(): void {
  */
 export async function terminateSession(apiKey: string, sessionId: string): Promise<boolean> {
   try {
-    const res = await fetch(`https://api.reactor.inc/sessions/${sessionId}`, {
+    forgetSessionCache();
+    const session = (await openSessions(apiKey)).find(item => item.sessionId === sessionId);
+    // Already closed is success; never attempt to end a session on another account.
+    if (!session) return true;
+    const ownerKey = demoKeys("news")[session.keySlot ?? 0] || apiKey;
+    const res = await fetch(`https://api.reactor.inc/sessions/${encodeURIComponent(sessionId)}`, {
       method: "DELETE",
-      headers: { Authorization: `Bearer ${apiKey}` },
+      headers: { Authorization: `Bearer ${ownerKey}` },
       signal: AbortSignal.timeout(10_000),
     });
     return res.ok;

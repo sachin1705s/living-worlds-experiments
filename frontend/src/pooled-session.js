@@ -1,7 +1,7 @@
-import { connectWithPair } from '../../shared/reactor-capacity.js';
+import { connectWithPool } from '../../shared/reactor-capacity.js';
 import { trackSession, stopReactor, trackConnect } from './vidu-session.js';
 export async function connectPooled(session, model, signal, active = () => true) {
-  return connectWithPair({
+  return connectWithPool({
     signal, active,
     token: async (keySlot) => {
       const response = await fetch('/api/token', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ model, keySlot }), signal });

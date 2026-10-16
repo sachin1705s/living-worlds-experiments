@@ -1,4 +1,4 @@
-// Server only. Each experiment owns its pair; no cross-demo borrowing.
+// Server only. Each experiment owns its ordered keys; no cross-demo borrowing.
 export const MODEL_DEMOS = {
   'reactor/lingbot': 'drawing', 'reactor/helios': 'drawing',
   'reactor/visko-orbis-stable': 'einstein', 'reactor/sana-streaming': 'stylized',
@@ -8,11 +8,11 @@ export const MODEL_DEMOS = {
 export function demoKeys(demo, env = process.env) {
   if (!Object.values(MODEL_DEMOS).includes(demo)) return [];
   const value = env[`REACTOR_${demo.toUpperCase()}_KEYS`];
-  // Legacy single-key installations remain supported until a pair is configured.
+  // Legacy single-key installations remain supported until a pool is configured.
   const keys = value ? JSON.parse(value) : [env.REACTOR_API_KEY];
-  return [...new Set(keys.filter(key => typeof key === 'string' && key.trim()).map(key => key.trim()))].slice(0, 2);
+  return [...new Set(keys.filter(key => typeof key === 'string' && key.trim()).map(key => key.trim()))].slice(0, 3);
 }
 export function keyFor(demo, slot = 0) {
-  if (slot !== 0 && slot !== 1) return undefined;
+  if (!Number.isInteger(slot) || slot < 0 || slot > 2) return undefined;
   return demoKeys(demo)[slot];
 }

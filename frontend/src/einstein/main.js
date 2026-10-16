@@ -1,4 +1,4 @@
-import { connectWithPair } from "../../../shared/reactor-capacity.js";
+import { connectWithPool } from "../../../shared/reactor-capacity.js";
 import { stopReactor, trackConnect, trackSession } from "../vidu-session.js";
 import { PcmPlayer } from "./pcm-player.js";
 import "./style.css";
@@ -126,7 +126,7 @@ document.getElementById("connect-form").addEventListener("submit", async (event)
   status.textContent = "Connecting to Einstein…";
   try {
     let current;
-    await connectWithPair({
+    await connectWithPool({
       signal: request.signal, active: () => attempt === version,
       token: async (keySlot) => {
         const response = await api("/api/token", { model: "reactor/visko-orbis-stable", keySlot });

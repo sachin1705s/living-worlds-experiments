@@ -122,6 +122,18 @@ export async function POST(request: Request) {
     }
   }
 
+  if (sessionId) {
+    // A viewer must be minted by the account that owns the existing broadcast.
+    try {
+      const session = (await openSessions(apiKey)).find(item => item.sessionId === sessionId);
+      if (!session) return NextResponse.json({ error: "Broadcast is no longer running" }, { status: 404 });
+      apiKey = keyFor("news", session.keySlot ?? 0);
+      if (!apiKey) return NextResponse.json({ error: "Broadcast credential unavailable" }, { status: 503 });
+    } catch {
+      return NextResponse.json({ error: "Unable to locate broadcast account" }, { status: 502 });
+    }
+  }
+
   const constraints: Record<string, number> = sessionId
     ? // A viewer never needs to create one. The floor the API accepts is 1, so
       // this cannot be zero — a short expiry is what bounds it instead.
